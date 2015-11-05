@@ -35,6 +35,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.payloads.AveragePayloadFunction;
 import org.apache.lucene.search.payloads.PayloadTermQuery;
@@ -50,6 +51,8 @@ import org.apache.lucene.util.Version;
  */
 public class Searching {
 
+    private static final Logger LOG = Logger.getLogger(Searching.class.getName());
+    
     private IndexSearcher indexSearcher;
     private String storagePath;
     private PayloadSimilarity ps = new PayloadSimilarity();
@@ -134,9 +137,13 @@ public class Searching {
         result.setQuery(query);
         try {
             Date start = new Date();
-            Query bq = parseInput(query, variant);
-            TopDocs docs = indexSearcher.search(bq, Settings.getMaxResults());
-//            TopFieldDocs docs = indexSearcher.search(bq, null, Settings.getMaxResults(), Sort.RELEVANCE, true, false);
+            Query[] bq = parseInput(query, variant);
+            TopDocs docs1 = indexSearcher.search(bq[0], Settings.getMaxResults(), Sort.RELEVANCE);
+            TopDocs docs2 = indexSearcher.search(bq[1], Settings.getMaxResults(), Sort.RELEVANCE);
+            
+            TopDocs docs = TopDocs.merge(Sort.RELEVANCE, Settings.getMaxResults(), new TopDocs[] {docs1, docs2});
+            removeDuplicates(docs);
+            
             Date end = new Date();
             long time = end.getTime() - start.getTime();
             result.setCoreSearchTime(time);
@@ -165,38 +172,47 @@ public class Searching {
      * @return Query instance representing input query. This query is in form of
      * (formula_1 or ... or formula_n) and (text queries)
      */
-    private Query parseInput(String queryString, MathTokenizer.MathMLType variant) {
-        BooleanQuery result = new BooleanQuery();
-        String[] sep = MathSeparator.separate(queryString, "");
-        if (sep[1].length() > 0) {
-            BooleanQuery bq = new BooleanQuery();
-            String mathQuery = "<?xml version='1.0' encoding='UTF-8'?><!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN\" \"http://www.w3.org/TR/MathML2/dtd/xhtml-math11-f.dtd\"><html>" + sep[1] + "</html>";
-            if (variant == MathTokenizer.MathMLType.PRESENTATION || variant == MathTokenizer.MathMLType.BOTH) {
-                addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.PRESENTATION);
+    private Query[] parseInput(String queryString, MathTokenizer.MathMLType variant) {
+        Query[] result = new Query[2];
+        for (int i = 0; i <= 1; i++) {
+            BooleanQuery resultBq = new BooleanQuery();
+            String[] sep = MathSeparator.separate(queryString, "");
+            if (sep[1].length() > 0) {
+                BooleanQuery bq = new BooleanQuery();
+                String mathQuery = "<?xml version='1.0' encoding='UTF-8'?><!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN\" \"http://www.w3.org/TR/MathML2/dtd/xhtml-math11-f.dtd\"><html>" + sep[1] + "</html>";
+                if (variant == MathTokenizer.MathMLType.PRESENTATION || variant == MathTokenizer.MathMLType.BOTH) {
+                    addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.PRESENTATION);
+                }
+                if (variant == MathTokenizer.MathMLType.CONTENT || variant == MathTokenizer.MathMLType.BOTH) {
+                    addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.CONTENT);
+                }
+                resultBq.add(bq, i==0 ? BooleanClause.Occur.MUST : BooleanClause.Occur.SHOULD);
             }
-            if (variant == MathTokenizer.MathMLType.CONTENT || variant == MathTokenizer.MathMLType.BOTH) {
-                addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.CONTENT);
+            if (sep[0].length() > 0) {
+                QueryParser parser = new MultiFieldQueryParser(Version.LUCENE_45, new String[]{"content", "title"}, new StandardAnalyzer(Version.LUCENE_45));
+                try {
+                    Query query = parser.parse(sep[0]);
+                    resultBq.add(query, i==0 ? BooleanClause.Occur.MUST : BooleanClause.Occur.SHOULD);
+                } catch (ParseException pe) {
+                    LOG.log(Level.SEVERE, "Can not parse query " + queryString, pe);
+                }
             }
-            result.add(bq, BooleanClause.Occur.MUST);
-        }
-        if (sep[0].length() > 0) {
-            QueryParser parser = new MultiFieldQueryParser(Version.LUCENE_45, new String[]{"content", "title"}, new StandardAnalyzer(Version.LUCENE_45));
-            try {
-                Query query = parser.parse(sep[0]);
-                result.add(query, BooleanClause.Occur.MUST);
-            } catch (ParseException pe) {
-                System.out.println(pe.getMessage());
-            }
+            result[i] = resultBq;
         }
         return result;
     }
 
     private void addMathQueries(String mathQuery, BooleanQuery bq, MathTokenizer.MathMLType variant) {
-        MathTokenizer mt = new MathTokenizer(new StringReader(mathQuery), false, variant);
-        Map<String, Float> queryForms = mt.getQueryFormulae();
-        List<Query> cQueries = getMathQueries(queryForms, variant);
-        for (Query q : cQueries) {
-            bq.add(q, BooleanClause.Occur.SHOULD);
+        try {
+            MathTokenizer mt = new MathTokenizer(new StringReader(mathQuery), false, variant);
+            mt.reset();
+            Map<String, Float> queryForms = mt.getQueryFormulae();
+            List<Query> cQueries = getMathQueries(queryForms, variant);
+            for (Query q : cQueries) {
+                bq.add(q, BooleanClause.Occur.SHOULD);
+            }
+        } catch (IOException ex) {
+            LOG.log(Level.SEVERE, "Can not parse math query " + mathQuery, ex);
         }
     }
 
@@ -226,7 +242,7 @@ public class Searching {
      * @return
      * @throws IOException
      */
-    private List<Result> getResults(int offset, int limit, List<ScoreDoc> docs, Query query, boolean debug) throws IOException {
+    private List<Result> getResults(int offset, int limit, List<ScoreDoc> docs, Query[] queries, boolean debug) throws IOException {
         List<Result> results = new ArrayList<Result>();
         List<ScoreDoc> temp = docs.subList(offset, Math.min(offset + limit, docs.size()));
 
@@ -240,7 +256,8 @@ public class Searching {
             String title = document.get("title");
             String info = "score = " + sd.score;
             if (debug) {
-                info += "\nExplanation: \n" + indexSearcher.explain(query, sd.doc);
+                info += "\nExplanation 1: \n" + indexSearcher.explain(queries[0], sd.doc);
+                info += "\nExplanation 2: \n" + indexSearcher.explain(queries[1], sd.doc);
             }
             //SPECIAL FOR ARXMLIV
             String id = document.get("arxivId");
@@ -263,7 +280,7 @@ public class Searching {
 
             String snippet = "";
             if (snippetIs != null) {
-                SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
+                SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, queries[1], sd.doc, indexSearcher.getIndexReader());
                 snippet = extractor.getSnippet();
             } else {
                 System.out.println("Stream is null for snippet extraction " + dataPath);
@@ -285,7 +302,7 @@ public class Searching {
      * @throws IOException
      * @throws CorruptIndexException
      */
-    private void printResults(SearchResult searchResult, Query query, IndexSearcher searcher)
+    private void printResults(SearchResult searchResult, Query[] query, IndexSearcher searcher)
             throws IOException, CorruptIndexException {
         System.out.println("Searching for: " + query.toString());
         System.out.println("Time: " + searchResult.getCoreSearchTime() + "ms");
@@ -371,5 +388,32 @@ public class Searching {
             return is;
         }
 
+    }
+
+    private void removeDuplicates(TopDocs docs) {
+        List<ScoreDoc> scoreDocList = new ArrayList<ScoreDoc>();
+        for (int i = 0; i < docs.scoreDocs.length; i++) {
+            if (docs.scoreDocs[i] != null) {
+                int duplicatePosition = getDuplicatePosition(docs, i);
+                if (duplicatePosition > 0) {
+                    for (int j = duplicatePosition; j < docs.scoreDocs.length - 2; j++) {
+                        docs.scoreDocs[j] = docs.scoreDocs[j + 1];
+                        docs.scoreDocs[j + 1] = null;
+                    }
+                    docs.totalHits = docs.totalHits - 1;
+                }
+                scoreDocList.add(docs.scoreDocs[i]);
+            }
+        }
+        docs.scoreDocs = scoreDocList.toArray(new ScoreDoc[docs.totalHits]);
+    }
+    
+    private int getDuplicatePosition(TopDocs docs, int position) {
+        for (int i = position + 1; i < docs.scoreDocs.length; i++) {
+            if (docs.scoreDocs[i] != null && docs.scoreDocs[position].doc == docs.scoreDocs[i].doc) {
+                return i;
+            }
+        }
+        return -1;
     }
 }
