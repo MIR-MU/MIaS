@@ -83,6 +83,10 @@ public class Settings {
         }
     }
     
+    public static void init() {
+        config = new Properties();
+    }
+    
     /**
      * 
      * @return Direcotry where the index is located or will be stored.
@@ -135,6 +139,10 @@ public class Settings {
         } catch (Exception e) {
         }
         return result;
+    }
+    
+    public static void setMaxResults(String maxResults) {
+        config.setProperty("MAXRESULTS", maxResults);
     }
 
     /**

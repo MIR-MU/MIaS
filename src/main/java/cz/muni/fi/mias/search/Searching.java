@@ -193,6 +193,11 @@ public class Searching {
 
     private void addMathQueries(String mathQuery, BooleanQuery bq, MathTokenizer.MathMLType variant) {
         MathTokenizer mt = new MathTokenizer(new StringReader(mathQuery), false, variant);
+        try {
+            mt.reset();
+        } catch (IOException ex) {
+            Logger.getLogger(Searching.class.getName()).log(Level.SEVERE, null, ex);
+        }
         Map<String, Float> queryForms = mt.getQueryFormulae();
         List<Query> cQueries = getMathQueries(queryForms, variant);
         for (Query q : cQueries) {
