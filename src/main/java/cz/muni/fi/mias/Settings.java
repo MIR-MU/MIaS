@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
 
 /**
  * Settings class responsible for loading settings from mias.properties Property file.
@@ -19,30 +21,65 @@ public class Settings {
     public static char dirSep = System.getProperty("file.separator").charAt(0);
     public static String eol = System.getProperty("line.separator");
     public static final String MATHDOCHEADER = "<?xml version='1.0' encoding='UTF-8'?><!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN\" \"http://www.w3.org/TR/MathML2/dtd/xhtml-math11-f.dtd\">";
-
-    static {
+    
+    public static final String OPTION_CONF = "conf";
+    public static final String OPTION_ADD = "add";
+    public static final String OPTION_OVERWRITE = "overwrite";
+    public static final String OPTION_DELETE = "delete";
+    public static final String OPTION_OPTIMIZE = "optimize";
+    public static final String OPTION_DELETEINDEX = "deleteindex";
+    public static final String OPTION_STATS = "stats";
+    public static final String OPTION_INDOCPROCESS = "indocprocess";
+    
+    public static Options getMIaSOptions() {
+        Options options = new Options();
+        options.addOption(Option.builder(OPTION_CONF)
+            .hasArg()
+            .required()
+            .desc("Path to indexing configuration file.")
+            .build());
+        options.addOption(Option.builder(OPTION_ADD)
+            .hasArgs()
+            .numberOfArgs(2)
+            .argName("input_path> <root_dir")
+            .desc("where root_dir is an absolute path to a directory in the input_path to determine the relative path that the files will be indexed with")
+            .build());
+        options.addOption(Option.builder(OPTION_OVERWRITE)
+            .hasArgs()
+            .numberOfArgs(2)
+            .argName("input_path> <root_dir")
+            .desc("Overwrites existing index")
+            .build());
+        options.addOption(Option.builder(OPTION_DELETE)
+            .hasArg()
+            .argName("dir_or_file")
+            .desc("Deletes file(s) from index.")
+            .build());
+        options.addOption(Option.builder(OPTION_OPTIMIZE)
+            .desc("Optimizes the index for maximum searching performance.")
+            .build());
+        options.addOption(Option.builder(OPTION_DELETEINDEX)
+            .desc("Deletes the index.")
+            .build());
+        options.addOption(Option.builder(OPTION_STATS)
+            .desc("Prints statistics about index.")
+            .build());
+        options.addOption(Option.builder(OPTION_INDOCPROCESS)
+            .hasArgs()
+            .numberOfArgs(2)
+            .argName("input_path> <root_dir")
+            .desc("where root_dir is an absolute path to a directory in the input_path. Processes math formulae and inserts M-terms into documents created under root_dir.")
+            .build());
+        return options;
+    }
+    
+    public static void init(String propertiesFilePath) {
         config = new Properties();
-        String path;
-        Properties configFilePointer = new Properties();
         try {
-            configFilePointer.load(Settings.class.getResourceAsStream("mias.to"));
-            path = configFilePointer.getProperty("MIASPATH");
-        } catch (IOException ex) {
-            path = "./mias.properties";
-            Logger.getLogger(Settings.class.getName()).log(Level.WARNING, "Cannot load properties file path from 'mias.to' file. Using {0} instead", path);
-        }
-        try {
-            config.load(new FileInputStream(path));
+            config.load(new FileInputStream(propertiesFilePath));
         } catch (Exception e) {
-            Logger.getLogger(Settings.class.getName()).log(Level.WARNING, "Cannot load properties file in " + path);
-            path = "./mias.properties";
-            Logger.getLogger(Settings.class.getName()).log(Level.INFO, "Using "+path+" instead.");
-            try {
-                config.load(new FileInputStream(path));
-            } catch (IOException ex) {
-                Logger.getLogger(Settings.class.getName()).log(Level.SEVERE, "Cannot load properties file in "+path+", please check path of mias.properties.");
-                System.exit(2);
-            }
+            Logger.getLogger(Settings.class.getName()).log(Level.WARNING, "Cannot load properties file in " + propertiesFilePath);
+            System.exit(2);            
         }
     }
     
