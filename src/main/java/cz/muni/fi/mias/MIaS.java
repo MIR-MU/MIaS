@@ -22,9 +22,6 @@ import org.apache.commons.cli.ParseException;
  */
 public class MIaS {
 
-    /**
-     * @param see printHelp()
-     */
     public static void main(String[] args) {
         Options options = Settings.getMIaSOptions();
         try {

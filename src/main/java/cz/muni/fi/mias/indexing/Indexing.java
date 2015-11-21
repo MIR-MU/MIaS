@@ -71,7 +71,7 @@ public class Indexing {
         }
         final File docDir = new File(path);
         if (!docDir.exists() || !docDir.canRead()) {
-            System.out.println("Document directory '" + docDir.getAbsolutePath() + "' does not exist or is not readable, please check the path");
+            LOG.severe("Document directory '" + docDir.getAbsolutePath() + "' does not exist or is not readable, please check the path");
             System.exit(1);
         }
         try {
@@ -82,8 +82,10 @@ public class Indexing {
             config.setSimilarity(ps);
             config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
             IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config);
+            LOG.info("Getting list of documents to index.");
             List<File> files = getDocs(docDir);
             countFiles(files);
+            LOG.info("Number of documents to index is "+count);
             indexDocsThreaded(files, writer);
             writer.close();
         } catch (IOException ex) {
