@@ -180,7 +180,7 @@ public class Searching {
             result.add(bq, BooleanClause.Occur.MUST);
         }
         if (sep[0].length() > 0) {
-            QueryParser parser = new MultiFieldQueryParser(Version.LUCENE_45, new String[]{"content", "title"}, new StandardAnalyzer(Version.LUCENE_45));
+            QueryParser parser = new MultiFieldQueryParser(new String[]{"content", "title"}, new StandardAnalyzer());
             try {
                 Query query = parser.parse(sep[0]);
                 result.add(query, BooleanClause.Occur.MUST);

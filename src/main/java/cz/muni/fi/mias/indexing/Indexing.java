@@ -42,7 +42,7 @@ public class Indexing {
     private static final Logger LOG = Logger.getLogger(Indexing.class.getName());
     
     private File indexDir;
-    private Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_45);
+    private Analyzer analyzer = new StandardAnalyzer();
     private long docLimit = Settings.getDocLimit();
     private long count = 0;
     private long progress = 0;
@@ -126,7 +126,7 @@ public class Indexing {
             }
             Iterator<File> it = files.iterator();
             ExecutorService executor = Executors.newFixedThreadPool(Settings.getNumThreads());
-            FutureTask[] tasks = new FutureTask[1];
+            FutureTask[] tasks = new FutureTask[Settings.getNumThreads()];
             int running = 0;
             while (it.hasNext() || running > 0) {
                 for (int i = 0; i < tasks.length; i++) {
