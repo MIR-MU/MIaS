@@ -118,8 +118,8 @@ public class Indexing {
     private void indexDocsThreaded(List<File> files, IndexWriter writer) {
         try {
             Iterator<File> it = files.iterator();
-            ExecutorService executor = Executors.newFixedThreadPool(16);
-            Future[] tasks = new Future[16];
+            ExecutorService executor = Executors.newFixedThreadPool(Settings.getNumThreads());
+            Future[] tasks = new Future[Settings.getNumThreads()];
             int running = 0;
 
             while (it.hasNext() || running > 0) {
@@ -130,7 +130,6 @@ public class Indexing {
                         Callable callable = new FileExtDocumentHandler(f, path);
                         FutureTask ft = new FutureTask(callable);
                         tasks[i] = ft;
-                        System.out.println("creating callable for " + path);
                         executor.execute(ft);
                         running++;
                     } else if (tasks[i] != null && tasks[i].isDone()) {
