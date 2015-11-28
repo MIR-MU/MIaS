@@ -12,4 +12,8 @@ public abstract class AbstractMIaSDocument implements MIaSDocument {
     public AbstractMIaSDocument(DocumentSource source) {
         this.source = source;
     }
+
+    public String getLogInfo() {
+        return source.getDocumentSourcePath();
+    }
 }

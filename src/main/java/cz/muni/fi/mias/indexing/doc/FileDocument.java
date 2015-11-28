@@ -67,5 +67,10 @@ public class FileDocument implements DocumentSource {
         doc.add(new TextField("title", file.getName(), Field.Store.YES));
         return doc;
     }
-    
+
+    @Override
+    public String getDocumentSourcePath() {
+        return path;
+    }
+
 }

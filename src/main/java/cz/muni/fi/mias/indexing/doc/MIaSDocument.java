@@ -16,5 +16,7 @@ import org.apache.lucene.document.Document;
 public interface MIaSDocument {
     
     public List<Document> getDocuments() throws IOException;
+
+    public String getLogInfo();
     
 }

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.apache.lucene.document.Document;
@@ -16,7 +17,9 @@ import org.apache.lucene.document.Document;
  *
  * @author Martin Liska
  */
-public class FileExtDocumentHandler implements Callable {    
+public class FileExtDocumentHandler implements Callable {
+
+    private static final Logger LOG = Logger.getLogger(FileExtDocumentHandler.class.getName());
     
     private File file;
     private String path;

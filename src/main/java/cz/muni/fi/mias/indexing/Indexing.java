@@ -12,11 +12,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.FutureTask;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.lucene.analysis.Analyzer;
@@ -95,71 +91,61 @@ public class Indexing {
 
     private List<File> getDocs(File file) throws IOException {
         List<File> result = new ArrayList<File>();
+        getDocs(result, file);
+        return result;
+    }
+
+    private List<File> getDocs(List<File> fileList, File file) {
         if (file.canRead()) {
             if (file.isDirectory()) {
                 File[] files = file.listFiles();
                 if (files != null) {
                     for (int i = 0; i < files.length; i++) {
-                        result.addAll(getDocs(files[i]));
+                        getDocs(fileList, files[i]);
                     }
                 }
             } else {
-                if (docLimit == 0) {
-                    return result;
+                if (fileList.size() == docLimit) {
+                    return fileList;
                 } else if (isFileIndexable(file)){
-                    result.add(file);
-                    docLimit--;
+                    fileList.add(file);
                 }
             }
         }
-        return result;
+        return fileList;
     }
 
     private void indexDocsThreaded(List<File> files, IndexWriter writer) {
         try {
-            boolean overWrite = Settings.getUpdateFiles();
-            DirectoryReader reader = null;
-            if (DirectoryReader.indexExists(FSDirectory.open(indexDir))) {
-                reader = DirectoryReader.open(FSDirectory.open(indexDir));
-            } else {
-                overWrite = true;
-            }
             Iterator<File> it = files.iterator();
-            ExecutorService executor = Executors.newFixedThreadPool(Settings.getNumThreads());
-            FutureTask[] tasks = new FutureTask[Settings.getNumThreads()];
+            ExecutorService executor = Executors.newFixedThreadPool(16);
+            Future[] tasks = new Future[16];
             int running = 0;
+
             while (it.hasNext() || running > 0) {
                 for (int i = 0; i < tasks.length; i++) {
                     if (tasks[i] == null && it.hasNext()) {
-                        boolean write = overWrite;
                         File f = it.next();
                         String path = resolvePath(f);
-                        if (!write) {
-                            int docFreq = reader.docFreq(new Term("path", path));
-                            write = docFreq>0;
-                        }
-                        if (write) {
-                            Callable callable = new FileExtDocumentHandler(f, path);
-                            FutureTask ft = new FutureTask(callable);
-                            tasks[i] = ft;
-                            executor.execute(ft);
-                            running++;
-                        }
+                        Callable callable = new FileExtDocumentHandler(f, path);
+                        FutureTask ft = new FutureTask(callable);
+                        tasks[i] = ft;
+                        System.out.println("creating callable for " + path);
+                        executor.execute(ft);
+                        running++;
                     } else if (tasks[i] != null && tasks[i].isDone()) {
                         List<Document> docs = (List<Document>) tasks[i].get();
                         running--;
                         tasks[i] = null;
                         for (Document doc : docs) {
                             if (doc != null) {
-                                LOG.info("adding " + doc.get("path"));
-                                LOG.info("Documents processed: " + (++progress));
                                 if (progress % 10000 == 0) {
                                     printTimes();
                                     writer.commit();
                                 }
+                                LOG.info("adding to index " + doc.get("path") + " docId=" + doc.get("id"));
                                 writer.updateDocument(new Term("id", doc.get("id")), doc);
-                                
-                                System.out.println("---------------------------------");
+                                LOG.info("Documents indexed: " + (++progress));
                             }
                         }
                         LOG.info("File progress: " + (++fileProgress) + " of " + count + " done...");
@@ -168,7 +154,6 @@ public class Indexing {
             }
             printTimes();
             executor.shutdown();
-
         } catch (IOException ex) {
             Logger.getLogger(Indexing.class.getName()).log(Level.SEVERE, null, ex);
         } catch (InterruptedException ex) {
