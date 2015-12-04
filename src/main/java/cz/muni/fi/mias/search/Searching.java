@@ -239,8 +239,6 @@ public class Searching {
             String fullLocalPath = document.get("path");
             String dataPath = storagePath + fullLocalPath;
 
-            InputStream snippetIs = getInputStreamFromDataPath(document);
-
             String title = document.get("title");
             String info = "score = " + sd.score;
             if (debug) {
@@ -251,29 +249,23 @@ public class Searching {
             if (id != null && !Character.isDigit(id.charAt(0))) {
                 id = "http://arxiv.org/abs/" + id.replace(".", "/");
             } else {
-                String ntcir10Id = null;
-                
-                InputStream idIs = getInputStreamFromDataPath(document);
-                if (idIs != null) {
-                    ntcir10Id = new NTCIR10CollectionDocumentIdExtractor(idIs).getId();
-                    idIs.close();
-                }
-                if (ntcir10Id != null) {
-                    id = ntcir10Id;
-                } else {
-                    id = document.get("id");
-                }
+                id = document.get("id");
             }
 
             String snippet = "";
-            if (snippetIs != null) {
-                SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
-                snippet = extractor.getSnippet();
+            if (limit <= 100) {
+                InputStream snippetIs = getInputStreamFromDataPath(document);
+                if (snippetIs != null) {
+                    SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
+                    snippet = extractor.getSnippet();
+                } else {
+                    System.out.println("Stream is null for snippet extraction " + dataPath);
+                }
+                if (snippetIs != null) {
+                    snippetIs.close();
+                }
             } else {
-                System.out.println("Stream is null for snippet extraction " + dataPath);
-            }
-            if (snippetIs != null) {
-                snippetIs.close();
+                snippet = "Snippets disabled for limit > 100";
             }
             results.add(new Result(title, fullLocalPath, info, id, snippet));
         }
