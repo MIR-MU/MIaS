@@ -18,22 +18,20 @@ import org.xml.sax.SAXException;
 
 /**
  * Utilities class.
- * 
+ *
  * @author Martin Liska
  */
 public class MIaSUtils {
-    
+
     private static final String MATHML_DTD = "/cz/muni/fi/mias/math/xhtml-math11-f.dtd";
-    
+
     /**
      * Extracts string content from a reader.
-     * 
-     * @param reader
-     * @return
+     *
      * @throws FileNotFoundException
-     * @throws IOException 
+     * @throws IOException
      */
-    public static String getContent(InputStream is) throws FileNotFoundException,IOException {
+    public static String getContent(InputStream is) throws FileNotFoundException, IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
         StringBuilder builder = new StringBuilder(1000);
         char[] buf = new char[1024];
@@ -44,7 +42,7 @@ public class MIaSUtils {
         }
         return builder.toString();
     }
-    
+
     public static DocumentBuilder prepareDocumentBuilder() throws ParserConfigurationException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
