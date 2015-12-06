@@ -4,7 +4,6 @@
  */
 package cz.muni.fi.mias.indexing.doc;
 
-import cz.muni.fi.mias.Settings;
 import cz.muni.fi.mias.MIaSUtils;
 import cz.muni.fi.mias.math.MathTokenizer;
 import java.io.ByteArrayInputStream;

@@ -39,7 +39,6 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.payloads.AveragePayloadFunction;
 import org.apache.lucene.search.payloads.PayloadTermQuery;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.Version;
 
 /**
  * Searching class responsible for searching over current index.

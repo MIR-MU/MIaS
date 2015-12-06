@@ -1,6 +1,5 @@
 package cz.muni.fi.mias.indexing.doc;
 
-import cz.muni.fi.mias.Settings;
 import cz.muni.fi.mias.math.MathTokenizer;
 import java.io.IOException;
 import java.io.InputStreamReader;

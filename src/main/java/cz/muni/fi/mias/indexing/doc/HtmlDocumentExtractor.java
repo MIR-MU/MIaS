@@ -5,7 +5,6 @@
 
 package cz.muni.fi.mias.indexing.doc;
 
-import cz.muni.fi.mias.Settings;
 import cz.muni.fi.mias.MIaSUtils;
 import java.io.File;
 import java.io.FileInputStream;

@@ -1,12 +1,6 @@
 package cz.muni.fi.mias;
 
 import cz.muni.fi.mias.indexing.Indexing;
-import cz.muni.fi.mias.search.Searching;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
