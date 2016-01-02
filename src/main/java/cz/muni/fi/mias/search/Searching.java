@@ -252,21 +252,21 @@ public class Searching {
                 id = document.get("id");
             }
 
-            String snippet = "";
-            if (limit <= 100) {
-                InputStream snippetIs = getInputStreamFromDataPath(document);
-                if (snippetIs != null) {
-                    SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
-                    snippet = extractor.getSnippet();
-                } else {
-                    System.out.println("Stream is null for snippet extraction " + dataPath);
-                }
-                if (snippetIs != null) {
-                    snippetIs.close();
-                }
-            } else {
-                snippet = "Snippets disabled for limit > 100";
-            }
+            String snippet = "Snippets disabled";
+//            if (limit <= 100) {
+//                InputStream snippetIs = getInputStreamFromDataPath(document);
+//                if (snippetIs != null) {
+//                    SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
+//                    snippet = extractor.getSnippet();
+//                } else {
+//                    System.out.println("Stream is null for snippet extraction " + dataPath);
+//                }
+//                if (snippetIs != null) {
+//                    snippetIs.close();
+//                }
+//            } else {
+//                snippet = "Snippets disabled for limit > 100";
+//            }
             results.add(new Result(title, fullLocalPath, info, id, snippet));
         }
         return results;
