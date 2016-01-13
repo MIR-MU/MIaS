@@ -142,9 +142,13 @@ public class Indexing {
                                     printTimes();
                                     writer.commit();
                                 }
-                                LOG.info("adding to index " + doc.get("path") + " docId=" + doc.get("id"));
-                                writer.updateDocument(new Term("id", doc.get("id")), doc);
-                                LOG.info("Documents indexed: " + (++progress));
+                                try {
+                                    LOG.info("adding to index " + doc.get("path") + " docId=" + doc.get("id"));
+                                    writer.updateDocument(new Term("id", doc.get("id")), doc);
+                                    LOG.info("Documents indexed: " + (++progress));
+                                } catch (Exception ex) {
+                                    LOG.log(Level.SEVERE, "Document '" + doc.get("path") + "' indexing failed: " + ex.getMessage(), ex);
+                                }
                             }
                         }
                         LOG.info("File progress: " + (++fileProgress) + " of " + count + " done...");
