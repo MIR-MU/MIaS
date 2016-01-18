@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use utf8;
 
-use CGI;
+use CGI qw(:standard);
 use Path::Tiny;
 
 binmode(STDIN,  "utf8");
@@ -12,6 +12,21 @@ binmode(STDOUT, "utf8");
 binmode(STDERR, "utf8");
 
 
+
+#
+# Subroutines
+#
+sub get_code_toggle {
+
+    my ($id, $content) = @_;
+
+    return div({-class => "formulaSingleForm"},
+               h6("(".a({-class => "toggle", -href => "#$id"},
+                        "show/hide code").")")
+              .div({-class => "hideable"},
+                   $content));
+
+}
 
 #
 # Main
@@ -75,6 +90,9 @@ print q{<?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <title>MIaS Index Report</title>
     <style type="text/css">
+    h6 a {
+        color: gray;
+    }
     mi {
         background-color: #cce5ff;
     }
@@ -85,16 +103,42 @@ print q{<?xml version="1.0" encoding="UTF-8" standalone="no"?>
         background-color: #ffffcc;
     }
     </style>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+
+        $(".hideable").hide();
+
+        $(".hideAll").click(function(){
+          $(".hideable").hide("fast");
+        });
+        $(".showAll").click(function(){
+          $(".hideable").show("fast");
+        });
+
+        $(".showFormula").click(function(){
+          $(this).parents(".formula").find(".hideable").show("fast");
+        });
+        $(".hideFormula").click(function(){
+          $(this).parents(".formula").find(".hideable").hide("fast");
+        });
+
+        $(".toggle").click(function(){
+          $(this).parents(".formulaSingleForm").find(".hideable").toggle("fast");
+        });
+
+    });
+    </script>
 </head>
 <body>
 <h1>MIaS Index Report</h1>
 };
 
 foreach my $id (sort { $data->{$b}->{'rank'} <=> $data->{$a}->{'rank'} } keys %$data) {
-    printf("<h2>Rank %f (formula %d)</h2>\n", CGI::escapeHTML($data->{$id}->{'rank'}), $id);
+    printf("<h2>Rank %f (formula %d)</h2>\n", escapeHTML($data->{$id}->{'rank'}), $id);
     printf("<p>MTerm: <code>%s</code></p>\n", CGI::escapeHTML($data->{$id}->{'mterm'}));
     printf("%s%s%s\n", q{<div style="font-size: 200%; background-color: #f2f2f2;"><math xmlns="http://www.w3.org/1998/Math/MathML">}, $data->{$id}->{'xml'}, q{</math></div>});
-    printf("<pre>%s</pre>\n", CGI::escapeHTML($data->{$id}->{'xml'}));
+    print get_code_toggle("$id", sprintf("<pre>%s</pre>\n", CGI::escapeHTML($data->{$id}->{'xml'})));
 }
 
 print q{</body>
