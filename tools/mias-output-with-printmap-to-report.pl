@@ -59,7 +59,7 @@ while (my $l = shift @input_lines) {
     if ($state == 1) {
         $data->{$formula_no}->{'mterm'} = '<unknown>';
         $data->{$formula_no}->{'rank'} = '<unknown>';
-        my ($null, $mterm, $rank) = $l =~ /^(\S+\s+)(.*)\s+(\d+\.\d+)$/;
+        my ($null, $mterm, $rank) = split(/\s+/, $l);
         $data->{$formula_no}->{'mterm'} = $mterm;
         $data->{$formula_no}->{'rank'} = $rank;
         $state = 2;
@@ -135,7 +135,7 @@ print q{<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 };
 
 foreach my $id (sort { $data->{$b}->{'rank'} <=> $data->{$a}->{'rank'} } keys %$data) {
-    printf("<h2>Rank %f (formula %d)</h2>\n", escapeHTML($data->{$id}->{'rank'}), $id);
+    printf("<h2>Rank %0.10f (formula %d)</h2>\n", escapeHTML($data->{$id}->{'rank'}), $id);
     printf("<p>MTerm: <code>%s</code></p>\n", CGI::escapeHTML($data->{$id}->{'mterm'}));
     printf("%s%s%s\n", q{<div style="font-size: 200%; background-color: #f2f2f2;"><math xmlns="http://www.w3.org/1998/Math/MathML">}, $data->{$id}->{'xml'}, q{</math></div>});
     print get_code_toggle("$id", sprintf("<pre>%s</pre>\n", CGI::escapeHTML($data->{$id}->{'xml'})));
