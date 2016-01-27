@@ -252,7 +252,7 @@ public class Searching {
                 id = document.get("id");
             }
 
-            String snippet = "";
+            String snippet = "Snippets disabled";
             if (limit <= 100) {
                 InputStream snippetIs = getInputStreamFromDataPath(document);
                 if (snippetIs != null) {
