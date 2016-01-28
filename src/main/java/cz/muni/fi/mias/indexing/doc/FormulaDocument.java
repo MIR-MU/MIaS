@@ -13,8 +13,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Result;
@@ -23,6 +21,8 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
@@ -37,7 +37,7 @@ import org.xml.sax.SAXException;
  * @author Martin Liska
  */
 public class FormulaDocument extends AbstractMIaSDocument {    
-    
+    private static final Logger LOG = LogManager.getLogger(FormulaDocument.class);
     public FormulaDocument(DocumentSource source) {
         super(source);
     }
@@ -82,11 +82,11 @@ public class FormulaDocument extends AbstractMIaSDocument {
                 result.add(doc);
             }
         } catch (TransformerException ex) {
-            Logger.getLogger(FormulaDocument.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         } catch (SAXException ex) {
-            Logger.getLogger(FormulaDocument.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         } catch (ParserConfigurationException ex) {
-            Logger.getLogger(FormulaDocument.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         }
         return result;
     }

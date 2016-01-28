@@ -26,8 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -40,6 +38,8 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -52,7 +52,7 @@ import org.xml.sax.SAXException;
  * @author Martin Liska
  */
 public class InDocProcessing {
-
+    private static final Logger LOG = LogManager.getLogger(InDocProcessing.class);
     private long progress = 0;
     private long count = 0;
     private File inPath;
@@ -82,7 +82,7 @@ public class InDocProcessing {
             count = docs.size();
             processDocsThreaded(docs);
         } catch (IOException ex) {
-            Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         }
     }
 
@@ -150,9 +150,9 @@ public class InDocProcessing {
                         insertMathToXML(new ZipEntryDocument(zipFile, path, entry));
                     }
                 } catch (ZipException ex) {
-                    Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+                    LOG.fatal(ex);
                 } catch (IOException ex) {
-                    Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+                    LOG.fatal(ex);
                 }
             } else {
                 insertMathToXML(new FileDocument(file, path));
@@ -188,19 +188,19 @@ public class InDocProcessing {
                 }
                 writeToFile(document, resolveNewPath(file));
             } catch (SAXException ex) {
-                Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+                LOG.fatal(ex);
             } catch (ParserConfigurationException ex) {
-                Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+                LOG.fatal(ex);
             } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+                LOG.fatal(ex);
             } catch (IOException ex) {
-                Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+                LOG.fatal(ex);
             } finally {
                 try {
                     isr1.close();
                     isr2.close();
                 } catch (IOException ex) {
-                    Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+                    LOG.fatal(ex);
                 }
             }
         }
@@ -235,9 +235,9 @@ public class InDocProcessing {
                 transformer.transform(source, result);
                 out.close();
             } catch (IOException ex) {
-                Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+                LOG.fatal(ex);
             } catch (TransformerException ex) {
-                Logger.getLogger(InDocProcessing.class.getName()).log(Level.SEVERE, null, ex);
+                LOG.fatal(ex);
             }
         }
     }

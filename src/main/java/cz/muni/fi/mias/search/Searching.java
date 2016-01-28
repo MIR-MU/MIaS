@@ -18,10 +18,10 @@ import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.CorruptIndexException;
@@ -48,7 +48,7 @@ import org.apache.lucene.store.FSDirectory;
  * @since 14.5.2010
  */
 public class Searching {
-
+    private static final Logger LOG = LogManager.getLogger(Searching.class);
     private IndexSearcher indexSearcher;
     private String storagePath;
     private PayloadSimilarity ps = new PayloadSimilarity();
@@ -103,12 +103,12 @@ public class Searching {
             }
             search(queryString, true, 0, 100, false);
         } catch (IOException ex) {
-            Logger.getLogger(Searching.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         } finally {
             try {
                 br.close();
             } catch (IOException ex) {
-                Logger.getLogger(Searching.class.getName()).log(Level.SEVERE, null, ex);
+                LOG.fatal(ex);
             }
         }
     }
@@ -150,7 +150,7 @@ public class Searching {
                 printResults(result, bq, indexSearcher);
             }
         } catch (IOException ex) {
-            Logger.getLogger(Searching.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         }
         return result;
     }
@@ -195,7 +195,7 @@ public class Searching {
         try {
             mt.reset();
         } catch (IOException ex) {
-            Logger.getLogger(Searching.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         }
         Map<String, Float> queryForms = mt.getQueryFormulae();
         List<Query> cQueries = getMathQueries(queryForms, variant);
@@ -362,7 +362,7 @@ public class Searching {
             }
 
         } catch (FileNotFoundException ex) {
-            Logger.getLogger(Searching.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         } finally {
             return is;
         }

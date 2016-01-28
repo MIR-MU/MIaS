@@ -2,10 +2,10 @@ package cz.muni.fi.mias;
 
 import java.io.FileInputStream;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Settings class responsible for loading settings from mias.properties Property file.
@@ -16,6 +16,7 @@ import org.apache.commons.cli.Options;
  */
 public class Settings {
 
+    private static final Logger LOG = LogManager.getLogger(Settings.class);
     private static Properties config;
     public static char dirSep = System.getProperty("file.separator").charAt(0);
     public static String eol = System.getProperty("line.separator");
@@ -77,7 +78,7 @@ public class Settings {
         try {
             config.load(new FileInputStream(propertiesFilePath));
         } catch (Exception e) {
-            Logger.getLogger(Settings.class.getName()).log(Level.WARNING, "Cannot load properties file in " + propertiesFilePath);
+           LOG.fatal(e);
             System.exit(2);            
         }
     }

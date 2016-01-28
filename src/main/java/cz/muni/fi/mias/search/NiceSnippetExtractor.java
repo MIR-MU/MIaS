@@ -1,7 +1,7 @@
 package cz.muni.fi.mias.search;
 
-import cz.muni.fi.mias.Settings;
 import cz.muni.fi.mias.MIaSUtils;
+import cz.muni.fi.mias.Settings;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,8 +14,8 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.AtomicReaderContext;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
@@ -32,7 +32,7 @@ import org.apache.lucene.search.spans.Spans;
  * @author Martin Liska
  */
 public class NiceSnippetExtractor implements SnippetExtractor {
-
+    private static final Logger LOG = LogManager.getLogger(NiceSnippetExtractor.class);
     private Query query;
     private int docNumber;
     private IndexReader indexReader;
@@ -79,7 +79,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
 
             return getSnippet(formSpans, nstqs);
         } catch (IOException ex) {
-            Logger.getLogger(NiceSnippetExtractor.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         }
         return "";
     }
@@ -253,7 +253,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         try {
             pre = content.substring(preStart, start);
         } catch (Exception ex) {
-            Logger.getLogger(NiceSnippetExtractor.class.getName()).log(Level.SEVERE, "Snippet pre contents extraction failed.", ex);
+            LOG.fatal(ex);
         }
         if (pre.isEmpty() || !Character.isUpperCase(pre.charAt(0))) {
             pre = "... " + pre;
@@ -267,7 +267,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         try {
             post = content.substring(end, postEnd);
         } catch (Exception ex) {
-            Logger.getLogger(NiceSnippetExtractor.class.getName()).log(Level.SEVERE, "Snippet post contents extraction failed.", ex);
+            LOG.fatal(ex);
         }
         if (post.isEmpty() || (post.charAt(post.length() - 1)) != '.') {
             post += " ...";

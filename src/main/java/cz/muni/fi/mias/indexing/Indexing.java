@@ -13,8 +13,8 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -35,7 +35,7 @@ import org.apache.lucene.util.Version;
  */
 public class Indexing {
 
-    private static final Logger LOG = Logger.getLogger(Indexing.class.getName());
+    private static final Logger LOG = LogManager.getLogger(Indexing.class);
     
     private File indexDir;
     private Analyzer analyzer = new StandardAnalyzer();
@@ -67,7 +67,7 @@ public class Indexing {
         }
         final File docDir = new File(path);
         if (!docDir.exists() || !docDir.canRead()) {
-            LOG.severe("Document directory '" + docDir.getAbsolutePath() + "' does not exist or is not readable, please check the path");
+            LOG.fatal("Document directory '{}' does not exist or is not readable, please check the path.",docDir.getAbsoluteFile());            
             System.exit(1);
         }
         try {
@@ -81,7 +81,7 @@ public class Indexing {
             LOG.info("Getting list of documents to index.");
             List<File> files = getDocs(docDir);
             countFiles(files);
-            LOG.info("Number of documents to index is "+count);
+            LOG.info("Number of documents to index is {}",count);
             indexDocsThreaded(files, writer);
             writer.close();
         } catch (IOException ex) {
@@ -143,26 +143,27 @@ public class Indexing {
                                     writer.commit();
                                 }
                                 try {
-                                    LOG.info("adding to index " + doc.get("path") + " docId=" + doc.get("id"));
+                                    LOG.info("adding to index {} docId={}",doc.get("path"),doc.get("id"));
                                     writer.updateDocument(new Term("id", doc.get("id")), doc);
-                                    LOG.info("Documents indexed: " + (++progress));
+                                    LOG.info("Documents indexed: {}", ++progress);
                                 } catch (Exception ex) {
-                                    LOG.log(Level.SEVERE, "Document '" + doc.get("path") + "' indexing failed: " + ex.getMessage(), ex);
+                                    LOG.fatal("Document '{}' indexing failed: {}",doc.get("path"),ex.getMessage());
+                                    LOG.fatal(ex.getStackTrace());
                                 }
                             }
                         }
-                        LOG.info("File progress: " + (++fileProgress) + " of " + count + " done...");
+                        LOG.info("File progress: {} of {} done...",++fileProgress, count);
                     }
                 }
             }
             printTimes();
             executor.shutdown();
         } catch (IOException ex) {
-            Logger.getLogger(Indexing.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         } catch (InterruptedException ex) {
-            Logger.getLogger(Indexing.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         } catch (ExecutionException ex) {
-            Logger.getLogger(Indexing.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.fatal(ex);
         }
     }
 
