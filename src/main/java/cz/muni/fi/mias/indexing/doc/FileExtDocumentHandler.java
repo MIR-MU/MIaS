@@ -43,9 +43,9 @@ public class FileExtDocumentHandler implements Callable {
             ZipFile zipFile;
             if (ext.equals("zip")) {
                 zipFile = new ZipFile(file);
-                Enumeration e = zipFile.entries();
+                Enumeration<? extends ZipEntry> e = zipFile.entries();
                 while (e.hasMoreElements()) {
-                    ZipEntry entry = (ZipEntry) e.nextElement();
+                    ZipEntry entry = e.nextElement();
                     if (!entry.isDirectory()) {
                         String name = entry.getName();
                         int extEnd = name.lastIndexOf("#");

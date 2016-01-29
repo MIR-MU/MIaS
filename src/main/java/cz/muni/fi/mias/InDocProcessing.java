@@ -91,8 +91,9 @@ public class InDocProcessing {
             if (file.isDirectory()) {
                 File[] files = file.listFiles();
                 if (files != null) {
-                    for (int i = 0; i < files.length; i++) {
-                        result.addAll(getDocs(files[i]));
+                    for (File file1 : files)
+                    {
+                        result.addAll(getDocs(file1));
                     }
                 }
             } else {
@@ -141,11 +142,10 @@ public class InDocProcessing {
             String ext = path.substring(path.lastIndexOf(".") + 1);
 
             if (ext.equals("zip")) {
-                try {
-                    ZipFile zipFile = new ZipFile(file);
-                    Enumeration e = zipFile.entries();
+                try(ZipFile zipFile = new ZipFile(file)) {
+                    Enumeration<? extends ZipEntry> e = zipFile.entries();
                     while (e.hasMoreElements()) {
-                        ZipEntry entry = (ZipEntry) e.nextElement();
+                        ZipEntry entry = e.nextElement();
                         insertMathToXML(new ZipEntryDocument(zipFile, path, entry));
                     }
                 } catch (ZipException ex) {
@@ -159,11 +159,8 @@ public class InDocProcessing {
         }
 
         private void insertMathToXML(DocumentSource source) {
-            InputStreamReader isr1 = null;
-            InputStreamReader isr2 = null;
-            try {
-                isr1 = new InputStreamReader(source.resetStream(), "UTF-8");
-                isr2 = new InputStreamReader(source.resetStream(), "UTF-8");
+            try(InputStreamReader isr1 = new InputStreamReader(source.resetStream(), "UTF-8");
+                    InputStreamReader isr2 = new InputStreamReader(source.resetStream(), "UTF-8")) {
                 MathTokenizer mt = new MathTokenizer(isr1, true, MathTokenizer.MathMLType.BOTH);
                 Map<Integer, List<Formula>> forms = mt.getFormulae();
                 DocumentBuilder builder = MIaSUtils.prepareDocumentBuilder();
@@ -192,14 +189,7 @@ public class InDocProcessing {
                 LOG.fatal(ex);
             } catch (IOException ex) {
                 LOG.fatal(ex);
-            } finally {
-                try {
-                    isr1.close();
-                    isr2.close();
-                } catch (IOException ex) {
-                    LOG.fatal(ex);
-                }
-            }
+            } 
         }
 
         private void writeToFile(Document document, String path) {

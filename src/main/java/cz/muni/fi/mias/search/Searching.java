@@ -3,6 +3,8 @@ package cz.muni.fi.mias.search;
 import cz.muni.fi.mias.*;
 import cz.muni.fi.mias.math.MathSeparator;
 import cz.muni.fi.mias.math.MathTokenizer;
+import cz.muni.fi.mias.search.snippets.NiceSnippetExtractor;
+import cz.muni.fi.mias.search.snippets.SnippetExtractor;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -90,12 +92,10 @@ public class Searching {
      * @param is InputStream with query input.
      */
     public void search(InputStream is) {
-        BufferedReader br = null;
-        try {
+        try(BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));) {
             if (!(is instanceof FileInputStream)) {
                 System.out.println("\nEnter query: ");
             }
-            br = new BufferedReader(new InputStreamReader(is, "UTF-8"));
             String queryString = "";
             String line;
             while ((line = br.readLine()) != null) {
@@ -104,12 +104,6 @@ public class Searching {
             search(queryString, true, 0, 100, false);
         } catch (IOException ex) {
             LOG.fatal(ex);
-        } finally {
-            try {
-                br.close();
-            } catch (IOException ex) {
-                LOG.fatal(ex);
-            }
         }
     }
 
@@ -332,7 +326,6 @@ public class Searching {
     private InputStream getInputStreamFromDataPath(Document document) {
 
         InputStream is = null;
-
         try {
             String fullLocalPath = document.get("path");
             String dataPath = storagePath + fullLocalPath;
@@ -366,6 +359,5 @@ public class Searching {
         } finally {
             return is;
         }
-
     }
 }

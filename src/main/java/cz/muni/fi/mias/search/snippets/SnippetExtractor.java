@@ -1,4 +1,4 @@
-package cz.muni.fi.mias.search;
+package cz.muni.fi.mias.search.snippets;
 
 /**
  * Extracts the snippet. Arguments are left to implementations and their constructors.

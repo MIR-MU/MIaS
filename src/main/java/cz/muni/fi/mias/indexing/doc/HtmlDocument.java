@@ -3,7 +3,7 @@ package cz.muni.fi.mias.indexing.doc;
 import cz.muni.fi.mias.math.MathTokenizer;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -60,9 +60,7 @@ public class HtmlDocument extends AbstractMIaSDocument {
         isr = new InputStreamReader(source.resetStream(), "UTF-8");
         document.add(new TextField("cmath", new MathTokenizer(isr, true, MathTokenizer.MathMLType.CONTENT)));
         
-        List<Document> result = new ArrayList<>();
-        result.add(document);
-        return result;
+        return Arrays.asList(document);
     }
 
 }

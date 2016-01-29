@@ -1,11 +1,10 @@
-package cz.muni.fi.mias.search;
+package cz.muni.fi.mias.search.snippets;
 
 import cz.muni.fi.mias.MIaSUtils;
 import cz.muni.fi.mias.Settings;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -63,7 +62,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
 //                        System.out.println(contextSpanDocNumber);
                         if (docNumber == contextSpanDocNumber) {
                             contextFound = true;
-                            cont = docNumber - contextSpanDocNumber >= 0 ? true : false;
+                            cont = docNumber - contextSpanDocNumber >= 0;
                             Collection<byte[]> payloads = spans.getPayload();
                             formSpans.add(new Span(spans.doc(), q.toString(), spans.start(), cz.muni.fi.mias.math.PayloadHelper.decodeFloatFromShortBytes(payloads.iterator().next())));
                         }
@@ -91,8 +90,8 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         } else {
             if (q instanceof BooleanQuery) {
                 BooleanClause[] bcs = ((BooleanQuery) q).getClauses();
-                for (int i = 0; i < bcs.length; i++) {
-                    BooleanClause bc = bcs[i];
+                for (BooleanClause bc : bcs)
+                {
                     getSpanTermQueries(bc.getQuery(), spanTermQueries, nonSpamTermQueries);
                 }
             } else {
@@ -281,107 +280,4 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         int tagstart2 = content.lastIndexOf("<", start);
         return tagstart1 < tagstart2;
     }
-
-    public class Snippet {
-
-        private int start;
-        private int end;
-        private String text;
-
-        public Snippet() {
-        }
-
-        public Snippet(int start, int end, String text) {
-            this.start = start;
-            this.end = end;
-            this.text = text;
-        }
-
-        public int getEnd() {
-            return end;
-        }
-
-        public void setEnd(int end) {
-            this.end = end;
-        }
-
-        public int getStart() {
-            return start;
-        }
-
-        public void setStart(int start) {
-            this.start = start;
-        }
-
-        public String getText() {
-            return text;
-        }
-
-        public void setText(String text) {
-            this.text = text;
-        }
-    }
-
-    public class Span implements Serializable, Comparable {
-
-        private int doc;
-        private String term;
-        private int position;
-        private float payload;
-
-        public Span(int doc, String term, int position, float payload) {
-            this.doc = doc;
-            this.term = term;
-            this.position = position;
-            this.payload = payload;
-        }
-
-        public Span() {
-        }
-
-        public String getTerm() {
-            return term;
-        }
-
-        public void setTerm(String term) {
-            this.term = term;
-        }
-
-        public int getDoc() {
-            return doc;
-        }
-
-        public void setDoc(int doc) {
-            this.doc = doc;
-        }
-
-        public float getPayload() {
-            return payload;
-        }
-
-        public void setPayload(float payload) {
-            this.payload = payload;
-        }
-
-        public int getPosition() {
-            return position;
-        }
-
-        public void setPosition(int position) {
-            this.position = position;
-        }
-
-        @Override
-        public String toString() {
-            return "Span{" + "doc=" + doc + "term=" + term + "position=" + position + "payload=" + payload + '}';
-        }
-
-        @Override
-        public int compareTo(Object o) {
-            float f1 = this.getPayload();
-            float f2 = ((Span) o).getPayload();
-            return f1 == f2 ? 0 : f1 - f2 > 0 ? -1 : 1;
-        }
-    }
-
 }

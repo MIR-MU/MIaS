@@ -86,10 +86,8 @@ public class HtmlDocumentExtractor {
         Node firstChild = titleElement.getFirstChild();
         if (firstChild != null) {
             if (firstChild instanceof Text) {
-                Text text = (Text) firstChild;
-                if (text != null) {
-                    result = text.getData();
-                }
+                Text text = (Text) firstChild;                
+                result = text.getData();
             } else {
                 result = firstChild.getTextContent();
             }

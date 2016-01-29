@@ -77,13 +77,14 @@ public class Indexing {
             ps.setDiscountOverlaps(false);
             config.setSimilarity(ps);
             config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
-            IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config);
-            LOG.info("Getting list of documents to index.");
-            List<File> files = getDocs(docDir);
-            countFiles(files);
-            LOG.info("Number of documents to index is {}",count);
-            indexDocsThreaded(files, writer);
-            writer.close();
+            try (IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config))
+            {
+                LOG.info("Getting list of documents to index.");
+                List<File> files = getDocs(docDir);
+                countFiles(files);
+                LOG.info("Number of documents to index is {}",count);
+                indexDocsThreaded(files, writer);
+            }
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -100,8 +101,9 @@ public class Indexing {
             if (file.isDirectory()) {
                 File[] files = file.listFiles();
                 if (files != null) {
-                    for (int i = 0; i < files.length; i++) {
-                        getDocs(fileList, files[i]);
+                    for (File file1 : files)
+                    {
+                        getDocs(fileList, file1);
                     }
                 }
             } else {
@@ -167,13 +169,11 @@ public class Indexing {
      * Optimizes the index.
      */
     public void optimize() {
-        try {
-            startTime = new Date();
-            IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_31, analyzer);
-            config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
-            IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config);
-//            writer.optimize();
-            writer.close();
+        startTime = new Date();
+        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_31, analyzer);
+        config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());      
+        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config)){
+//            writer.optimize();            
             Date end = new Date();
             System.out.println("Optimizing time: "+ (end.getTime()-startTime.getTime())+" ms");
         } catch (IOException e) {
@@ -191,11 +191,15 @@ public class Indexing {
     private void deleteDir(File f) {
         if (f.exists()) {
             File[] files = f.listFiles();
-            for (int i = 0; i < files.length; i++) {
-                if (files[i].isDirectory()) {
-                    deleteDir(files[i]);
-                } else {
-                    files[i].delete();
+            for (File file : files)
+            {
+                if (file.isDirectory())
+                {
+                    deleteDir(file);
+                }
+                else
+                {
+                    file.delete();
                 }
             }
             f.delete();
@@ -213,12 +217,10 @@ public class Indexing {
             System.out.println("Document directory '" + docDir.getAbsolutePath() + "' does not exist or is not readable, please check the path");
             System.exit(1);
         }
-        try {
-            IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_31, analyzer);
-            config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
-            IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config);
+        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_31, analyzer);
+        config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
+        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config)) { 
             deleteDocs(writer, docDir);
-            writer.close();
         } catch (IOException ex) {
             System.out.println(ex.getMessage());
         }
@@ -229,8 +231,9 @@ public class Indexing {
             if (file.isDirectory()) {
                 File[] files = file.listFiles();
                 if (files != null) {
-                    for (int i = 0; i < files.length; i++) {
-                        deleteDocs(writer, files[i]);
+                    for (File file1 : files)
+                    {
+                        deleteDocs(writer, file1);
                     }
                 }
             } else {
@@ -245,15 +248,13 @@ public class Indexing {
      */
     public void getStats() {
         String stats = "\nIndex statistics: \n\n";
-        DirectoryReader ir = null;
-        try {
-            ir = DirectoryReader.open(FSDirectory.open(indexDir));
+        try(DirectoryReader dr = DirectoryReader.open(FSDirectory.open(indexDir))) {
             stats += "Index directory: "+indexDir.getAbsolutePath() + "\n";
-            stats += "Number of indexed documents: " + ir.numDocs() + "\n";
+            stats += "Number of indexed documents: " + dr.numDocs() + "\n";
             
             long fileSize = 0;
-            for (int i = 0; i < ir.numDocs(); i++) {
-                Document doc = ir.document(i);
+            for (int i = 0; i < dr.numDocs(); i++) {
+                Document doc = dr.document(i);
                 if (doc.getField("filesize")!=null) {
                     String size = doc.getField("filesize").stringValue();
                     fileSize += Long.valueOf(size);
@@ -270,15 +271,7 @@ public class Indexing {
             System.out.println(stats);
         } catch (IOException | NumberFormatException e) {
             System.out.println(e.getMessage());
-        } finally {
-            if (ir!=null) {
-                try {
-                    ir.close();
-                } catch (IOException ex) {
-                    System.out.println(ex.getMessage());
-                }
-            }
-        }
+        } 
     }
 
     
