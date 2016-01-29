@@ -44,7 +44,7 @@ public class FormulaDocument extends AbstractMIaSDocument {
 
     @Override
     public List<Document> getDocuments() throws IOException {
-        List<Document> result = new ArrayList<Document>();
+        List<Document> result = new ArrayList<>();
         try {
             DocumentBuilder builder = MIaSUtils.prepareDocumentBuilder();
             org.w3c.dom.Document document = builder.parse(source.resetStream());
@@ -81,11 +81,7 @@ public class FormulaDocument extends AbstractMIaSDocument {
                 doc.add(new TextField("cmath", mathTokenizer1));
                 result.add(doc);
             }
-        } catch (TransformerException ex) {
-            LOG.fatal(ex);
-        } catch (SAXException ex) {
-            LOG.fatal(ex);
-        } catch (ParserConfigurationException ex) {
+        } catch (TransformerException | SAXException | ParserConfigurationException ex) {
             LOG.fatal(ex);
         }
         return result;

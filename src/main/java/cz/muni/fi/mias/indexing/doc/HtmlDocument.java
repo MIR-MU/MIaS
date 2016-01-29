@@ -60,7 +60,7 @@ public class HtmlDocument extends AbstractMIaSDocument {
         isr = new InputStreamReader(source.resetStream(), "UTF-8");
         document.add(new TextField("cmath", new MathTokenizer(isr, true, MathTokenizer.MathMLType.CONTENT)));
         
-        List<Document> result = new ArrayList<Document>();
+        List<Document> result = new ArrayList<>();
         result.add(document);
         return result;
     }

@@ -10,7 +10,6 @@ import cz.muni.fi.mias.indexing.doc.ZipEntryDocument;
 import cz.muni.fi.mias.math.Formula;
 import cz.muni.fi.mias.math.MathMLConf;
 import cz.muni.fi.mias.math.MathTokenizer;
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -87,7 +86,7 @@ public class InDocProcessing {
     }
 
     private List<File> getDocs(File file) throws IOException {
-        List<File> result = new ArrayList<File>();
+        List<File> result = new ArrayList<>();
         if (file.canRead()) {
             if (file.isDirectory()) {
                 File[] files = file.listFiles();
@@ -187,9 +186,7 @@ public class InDocProcessing {
                     maths.item(i).appendChild(el);
                 }
                 writeToFile(document, resolveNewPath(file));
-            } catch (SAXException ex) {
-                LOG.fatal(ex);
-            } catch (ParserConfigurationException ex) {
+            } catch (SAXException | ParserConfigurationException ex) {
                 LOG.fatal(ex);
             } catch (UnsupportedEncodingException ex) {
                 LOG.fatal(ex);
@@ -212,7 +209,6 @@ public class InDocProcessing {
                 outFile.getParentFile().mkdirs();
                 OutputStream out = null;
                 if (ext.equals("zip")) {
-                    BufferedInputStream origin = null;
                     FileOutputStream dest = new FileOutputStream(path);
                     out = new ZipOutputStream(new BufferedOutputStream(dest));
                     String entryName = path.substring(path.lastIndexOf(dirSep));
@@ -234,9 +230,7 @@ public class InDocProcessing {
                 StreamResult result = new StreamResult(out);
                 transformer.transform(source, result);
                 out.close();
-            } catch (IOException ex) {
-                LOG.fatal(ex);
-            } catch (TransformerException ex) {
+            } catch (IOException | TransformerException ex) {
                 LOG.fatal(ex);
             }
         }

@@ -139,7 +139,7 @@ public class Searching {
             Date end = new Date();
             long time = end.getTime() - start.getTime();
             result.setCoreSearchTime(time);
-            result.setResults(getResults(offset, limit, new ArrayList<ScoreDoc>(Arrays.asList(docs.scoreDocs)), bq, debug));
+            result.setResults(getResults(offset, limit, new ArrayList<>(Arrays.asList(docs.scoreDocs)), bq, debug));
             result.setTotalResults(docs.totalHits);
             if (debug) {
                 result.setLuceneQuery(bq.toString());
@@ -206,7 +206,7 @@ public class Searching {
 
     private List<Query> getMathQueries(Map<String, Float> queryForms, MathTokenizer.MathMLType type) {
         String field = (type == MathTokenizer.MathMLType.PRESENTATION ? "p" : "c") + "math";
-        List<Query> result = new ArrayList<Query>();
+        List<Query> result = new ArrayList<>();
         Iterator<Map.Entry<String, Float>> it = queryForms.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, Float> entry = it.next();
@@ -231,7 +231,7 @@ public class Searching {
      * @throws IOException
      */
     private List<Result> getResults(int offset, int limit, List<ScoreDoc> docs, Query query, boolean debug) throws IOException {
-        List<Result> results = new ArrayList<Result>();
+        List<Result> results = new ArrayList<>();
         List<ScoreDoc> temp = docs.subList(offset, Math.min(offset + limit, docs.size()));
 
         for (ScoreDoc sd : temp) {

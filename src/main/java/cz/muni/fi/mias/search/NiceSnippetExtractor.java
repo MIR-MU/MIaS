@@ -48,10 +48,10 @@ public class NiceSnippetExtractor implements SnippetExtractor {
     @Override
     public String getSnippet() {
         try {
-            List<Query> stqs = new ArrayList<Query>();
-            List<Query> nstqs = new ArrayList<Query>();
+            List<Query> stqs = new ArrayList<>();
+            List<Query> nstqs = new ArrayList<>();
             getSpanTermQueries(query, stqs, nstqs);
-            List<Span> formSpans = new ArrayList<Span>();
+            List<Span> formSpans = new ArrayList<>();
             for (Query q : stqs) {
                 for (AtomicReaderContext context : indexReader.leaves()) {
                     Spans spans = ((SpanTermQuery) q).getSpans(context, null, new HashMap());
@@ -135,7 +135,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
     }
 
     private List<Snippet> getDocSnippets(List<Span> spans, List<Query> nstqs, String content) {
-        List<Snippet> result = new ArrayList<Snippet>();
+        List<Snippet> result = new ArrayList<>();
 
         if (spans != null && !spans.isEmpty()) {
             Collections.sort(spans);
@@ -176,7 +176,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
             }
         }
 
-        Set<Term> terms = new LinkedHashSet<Term>();
+        Set<Term> terms = new LinkedHashSet<>();
         for (Query q : nstqs) {
             q.extractTerms(terms);
         }

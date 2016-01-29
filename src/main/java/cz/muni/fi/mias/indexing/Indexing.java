@@ -90,7 +90,7 @@ public class Indexing {
     }
 
     private List<File> getDocs(File file) throws IOException {
-        List<File> result = new ArrayList<File>();
+        List<File> result = new ArrayList<>();
         getDocs(result, file);
         return result;
     }
@@ -158,11 +158,7 @@ public class Indexing {
             }
             printTimes();
             executor.shutdown();
-        } catch (IOException ex) {
-            LOG.fatal(ex);
-        } catch (InterruptedException ex) {
-            LOG.fatal(ex);
-        } catch (ExecutionException ex) {
+        } catch (IOException | InterruptedException | ExecutionException ex) {
             LOG.fatal(ex);
         }
     }
@@ -272,7 +268,7 @@ public class Indexing {
             stats += "Approximated size of indexed files: " + fileSize + " bytes \n";
 
             System.out.println(stats);
-        } catch (Exception e) {
+        } catch (IOException | NumberFormatException e) {
             System.out.println(e.getMessage());
         } finally {
             if (ir!=null) {

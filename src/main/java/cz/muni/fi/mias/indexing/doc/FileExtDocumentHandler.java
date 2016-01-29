@@ -37,8 +37,8 @@ public class FileExtDocumentHandler implements Callable {
      */
     public static List<Document> getDocuments(File file, String path) {
         String ext = path.substring(path.lastIndexOf(".") + 1);
-        List<Document> result = new ArrayList<Document>();
-        List<MIaSDocument> miasDocuments = new ArrayList<MIaSDocument>();
+        List<Document> result = new ArrayList<>();
+        List<MIaSDocument> miasDocuments = new ArrayList<>();
         try {
             ZipFile zipFile;
             if (ext.equals("zip")) {

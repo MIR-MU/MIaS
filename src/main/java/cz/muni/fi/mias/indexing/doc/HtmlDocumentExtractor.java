@@ -48,11 +48,7 @@ public class HtmlDocumentExtractor {
             DocumentBuilder prepareDocumentBuilder = MIaSUtils.prepareDocumentBuilder();
             org.w3c.dom.Document root = prepareDocumentBuilder.parse(is);
             rawDoc = root.getDocumentElement();
-        } catch (SAXException ex) {
-            LOG.fatal(ex);
-        } catch (IOException ex) {
-            LOG.fatal(ex);
-        } catch (ParserConfigurationException ex) {
+        } catch (SAXException | IOException | ParserConfigurationException ex) {
             LOG.fatal(ex);
         }
     }
