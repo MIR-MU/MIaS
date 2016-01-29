@@ -1,6 +1,5 @@
 package cz.muni.fi.mias.indexing.doc;
 
-import cz.muni.fi.mias.Settings;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -23,6 +22,7 @@ public class FileExtDocumentHandler implements Callable {
     
     private File file;
     private String path;
+    private MIasDocumentFactory mIasDocumentFactory = new MIasDocumentFactory();
 
     public FileExtDocumentHandler(File file, String path) {
         this.file = file;
@@ -35,7 +35,7 @@ public class FileExtDocumentHandler implements Callable {
      * @param file Input file to be handled.
      * @return List<Lucene> of documents for the input files
      */
-    public static List<Document> getDocuments(File file, String path) {
+    public List<Document> getDocuments(File file, String path) {
         String ext = path.substring(path.lastIndexOf(".") + 1);
         List<Document> result = new ArrayList<>();
         List<MIaSDocument> miasDocuments = new ArrayList<>();
@@ -53,7 +53,7 @@ public class FileExtDocumentHandler implements Callable {
                             extEnd = name.length();
                         }
                         ext = name.substring(name.lastIndexOf(".") + 1, extEnd);
-                        MIaSDocument miasDocument = handleExtension(ext, new ZipEntryDocument(zipFile, path, entry));
+                        MIaSDocument miasDocument = mIasDocumentFactory.buildDocument(ext, new ZipEntryDocument(zipFile, path, entry));
                         if (miasDocument != null) {
                             miasDocuments.add(miasDocument);
                         }
@@ -61,7 +61,7 @@ public class FileExtDocumentHandler implements Callable {
                 }
             } else {
                 DocumentSource source = new FileDocument(file, path);
-                MIaSDocument miasDocument = handleExtension(ext, source);
+                MIaSDocument miasDocument = mIasDocumentFactory.buildDocument(ext, source);
                 if (miasDocument!=null) {
                     miasDocuments.add(miasDocument);
                 }
@@ -74,16 +74,6 @@ public class FileExtDocumentHandler implements Callable {
             e.printStackTrace();
         }
         return result;
-    }
-    
-    private static MIaSDocument handleExtension(String ext, DocumentSource source) {
-        MIaSDocument miasDocument = null;
-        if (Settings.getIndexFormulaeDocuments()) {
-            miasDocument = new FormulaDocument(source);
-        } else if (ext.equals("html") || ext.equals("xhtml")) {// || ext.equals("xml")) {
-            miasDocument = new HtmlDocument(source);
-        }
-        return miasDocument;
     }
 
     public List<Document> call() {
