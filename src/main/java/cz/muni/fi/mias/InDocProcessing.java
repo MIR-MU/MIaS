@@ -18,7 +18,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
@@ -57,7 +56,7 @@ public class InDocProcessing {
     private File inPath;
     private String outDir;
     private char dirSep = System.getProperty("file.separator").charAt(0);
-    private Date start;
+    private long start;
 
     /**
      * 
@@ -76,7 +75,7 @@ public class InDocProcessing {
      */
     public void process() {
         try {
-            start = new Date();
+            start = System.currentTimeMillis();
             List<File> docs = getDocs(inPath);
             count = docs.size();
             processDocsThreaded(docs);
@@ -227,10 +226,9 @@ public class InDocProcessing {
     }
 
     private void printTimes() {
-        Date intermediate = new Date();
         System.out.println("---------------------------------");
         System.out.println();
-        System.out.println(progress + " DONE in " + (intermediate.getTime() - start.getTime()) + " ms");
+        System.out.println(progress + " DONE in " + (System.currentTimeMillis() - start) + " ms");
         System.out.println();
     }
 }

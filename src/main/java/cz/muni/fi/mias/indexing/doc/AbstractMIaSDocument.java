@@ -13,6 +13,7 @@ public abstract class AbstractMIaSDocument implements MIaSDocument {
         this.source = source;
     }
 
+    @Override
     public String getLogInfo() {
         return source.getDocumentSourcePath();
     }

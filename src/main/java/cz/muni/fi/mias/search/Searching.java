@@ -15,7 +15,6 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
@@ -126,20 +125,18 @@ public class Searching {
         SearchResult result = new SearchResult();
         result.setQuery(query);
         try {
-            Date start = new Date();
+            long start = System.currentTimeMillis();
             Query bq = parseInput(query, variant);
             TopDocs docs = indexSearcher.search(bq, Settings.getMaxResults());
 //            TopFieldDocs docs = indexSearcher.search(bq, null, Settings.getMaxResults(), Sort.RELEVANCE, true, false);
-            Date end = new Date();
-            long time = end.getTime() - start.getTime();
-            result.setCoreSearchTime(time);
+            long end = System.currentTimeMillis();
+            result.setCoreSearchTime(end-start);
             result.setResults(getResults(offset, limit, new ArrayList<>(Arrays.asList(docs.scoreDocs)), bq, debug));
             result.setTotalResults(docs.totalHits);
             if (debug) {
                 result.setLuceneQuery(bq.toString());
             }
-            end = new Date();
-            result.setTotalSearchTime(end.getTime() - start.getTime());
+            result.setTotalSearchTime(System.currentTimeMillis() - start);
             if (print) {
                 printResults(result, bq, indexSearcher);
             }

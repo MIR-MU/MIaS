@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.*;
@@ -44,7 +43,7 @@ public class Indexing {
     private long progress = 0;
     private long fileProgress = 0;
     private String storage;
-    private Date startTime;
+    private long startTime;
 
     /**
      * Constructor creates Indexing instance. Directory with the index is taken from the Settings.
@@ -71,7 +70,7 @@ public class Indexing {
             System.exit(1);
         }
         try {
-            startTime = new Date();
+            startTime = System.currentTimeMillis();
             IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_45, analyzer);
             PayloadSimilarity ps = new PayloadSimilarity();
             ps.setDiscountOverlaps(false);
@@ -168,14 +167,15 @@ public class Indexing {
     /**
      * Optimizes the index.
      */
-    public void optimize() {
-        startTime = new Date();
+    public void optimize() {        
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_31, analyzer);
-        config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());      
+        config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());  
+        // TODO what do we measure here ? time of optimization or optimiziation
+        // and index opening aswell
+        startTime = System.currentTimeMillis();
         try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config)){
-//            writer.optimize();            
-            Date end = new Date();
-            System.out.println("Optimizing time: "+ (end.getTime()-startTime.getTime())+" ms");
+//            writer.optimize();    
+            System.out.println("Optimizing time: "+ (System.currentTimeMillis()-startTime)+" ms");
         } catch (IOException e) {
             System.out.println(e.getMessage());
         }
@@ -306,10 +306,9 @@ public class Indexing {
     }
 
     private void printTimes() {
-        Date intermediate = new Date();
         System.out.println("---------------------------------");
         System.out.println();
-        System.out.println(progress + " DONE in total time " + (intermediate.getTime() - startTime.getTime()) + " ms,");
+        System.out.println(progress + " DONE in total time " + (System.currentTimeMillis() - startTime) + " ms,");
         System.out.println("CPU time " + (getCpuTime()) + " ms");
         System.out.println("user time " + (getUserTime()) + " ms");
         MathTokenizer.printFormulaeCount();
@@ -319,10 +318,7 @@ public class Indexing {
     private boolean isFileIndexable(File file) {
         String path = file.getAbsolutePath();
         String ext = path.substring(path.lastIndexOf(".") + 1);
-        if (ext.equals("html") || ext.equals("xhtml") || ext.equals("zip")) {
-            return true;
-        }
-        return false;
+        return ext.equals("html") || ext.equals("xhtml") || ext.equals("zip");
     }
 
     private void countFiles(List<File> files) {
