@@ -17,6 +17,7 @@ import org.apache.logging.log4j.Logger;
 public class Settings {
 
     private static final Logger LOG = LogManager.getLogger(Settings.class);
+    public static final String EMPTY_STRING  = "";
     private static Properties config;
     public static char dirSep = System.getProperty("file.separator").charAt(0);
     public static String eol = System.getProperty("line.separator");
@@ -94,7 +95,7 @@ public class Settings {
     public static String getIndexDir() {
         String result = config.getProperty("INDEXDIR");
         if (result == null || result.equals("")) {
-            System.out.println("Broken properties file mias.properties. Please check INDEXDIR entry.");
+            LOG.error("Broken properties file mias.properties. Please check INDEXDIR entry.");
             System.exit(2);
         }
         return result;

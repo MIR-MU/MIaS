@@ -65,8 +65,8 @@ public class Searching {
             this.indexSearcher.setSimilarity(ps);
             this.storagePath = "";
 //            sug = new TitlesSuggester(indexSearcher.getIndexReader());
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException ex) {
+            LOG.error(ex);
         }
     }
 
@@ -93,7 +93,7 @@ public class Searching {
     public void search(InputStream is) {
         try(BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));) {
             if (!(is instanceof FileInputStream)) {
-                System.out.println("\nEnter query: ");
+                LOG.info("\nEnter query: ");
             }
             String queryString = "";
             String line;
@@ -175,7 +175,7 @@ public class Searching {
                 Query query = parser.parse(sep[0]);
                 result.add(query, BooleanClause.Occur.MUST);
             } catch (ParseException pe) {
-                System.out.println(pe.getMessage());
+                LOG.error(pe.getMessage());
             }
         }
         return result;
@@ -250,7 +250,7 @@ public class Searching {
                     SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
                     snippet = extractor.getSnippet();
                 } else {
-                    System.out.println("Stream is null for snippet extraction " + dataPath);
+                    LOG.info("Stream is null for snippet extraction {}",dataPath);
                 }
                 if (snippetIs != null) {
                     snippetIs.close();
@@ -274,14 +274,14 @@ public class Searching {
      */
     private void printResults(SearchResult searchResult, Query query, IndexSearcher searcher)
             throws IOException, CorruptIndexException {
-        System.out.println("Searching for: " + query.toString());
-        System.out.println("Time: " + searchResult.getCoreSearchTime() + "ms");
+        LOG.info("Searching for: {}",query);
+        LOG.info("Time: {} ms", searchResult.getCoreSearchTime());
         int totalResults = searchResult.getTotalResults();
-        System.out.println("\nTotal hits: " + totalResults);
+        LOG.info("Total hits: {}",totalResults);
         if (totalResults == 0) {
-            System.out.println("-------------");
-            System.out.println("Nothing found");
-            System.out.println("-------------");
+            LOG.warn("-------------");
+            LOG.warn("Nothing found");
+            LOG.warn("-------------");
         } else {
             BufferedReader is = new BufferedReader(new InputStreamReader(System.in));
             int hitsPP = 30;
@@ -296,21 +296,21 @@ public class Searching {
                     String title = result.getTitle();
                     if (title != null) {
                         if (title.length() > 60) {
-                            System.out.println(title.substring(0, 60) + " ...");
+                            LOG.info("{} ...",title.substring(0, 60));
                         } else {
-                            System.out.println(title);
+                            LOG.info(title);
                         }
                     }
-                    System.out.println("id: " + result.getId());
-                    System.out.println(result.getPath());
-                    System.out.println(result.getSnippet());
-                    System.out.println("----------------------------------------------------");
+                    LOG.info("id: {}",result.getId());
+                    LOG.info("Path: {}",result.getPath());
+                    LOG.info("Snippet: {}",result.getSnippet());
+                    LOG.info("----------------------------------------------------");
                 }
-                System.out.println("Showing results " + (start + 1) + "-" + end);
+                LOG.info("Showing results {}-{}",start+1,end);
                 if (end == searchResult.getResults().size()) {
                     break;
                 }
-                System.out.println("Show next page?(y/n)");
+                LOG.info("Show next page?(y/n)");
                 String s = is.readLine();
                 if (s == null || s.length() == 0 || s.charAt(0) == 'n') {
                     quit = true;

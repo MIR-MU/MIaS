@@ -132,8 +132,8 @@ public class InDocProcessing {
         }
 
         private void processDoc(File file) {
-            System.out.println("Processing " + file);
-            System.out.println("Progress: " + (++progress) + " of " + count + " done...");
+            LOG.info("Processing {}",file);
+            LOG.info("Progress: {} of {} done...",++progress,count);
             if (progress % 10000 == 0) {
                 printTimes();
             }
@@ -226,9 +226,9 @@ public class InDocProcessing {
     }
 
     private void printTimes() {
-        System.out.println("---------------------------------");
-        System.out.println();
-        System.out.println(progress + " DONE in " + (System.currentTimeMillis() - start) + " ms");
-        System.out.println();
+        LOG.info("---------------------------------");
+        LOG.info(Settings.EMPTY_STRING);
+        LOG.info("{} DONE in {} ms",progress,System.currentTimeMillis() - start);
+        LOG.info(Settings.EMPTY_STRING);
     }
 }

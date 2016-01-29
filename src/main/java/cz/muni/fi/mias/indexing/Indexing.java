@@ -89,7 +89,7 @@ public class Indexing {
                 indexDocsThreaded(files, writer);
             }
         } catch (IOException ex) {
-            ex.printStackTrace();
+            LOG.error(ex);
         }
     }
 
@@ -172,9 +172,9 @@ public class Indexing {
         startTime = System.currentTimeMillis();
         try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config)){
 //            writer.optimize();    
-            System.out.println("Optimizing time: "+ (System.currentTimeMillis()-startTime)+" ms");
+            LOG.info("Optimizing time: {} ms",System.currentTimeMillis()-startTime);
         } catch (IOException e) {
-            System.out.println(e.getMessage());
+            LOG.error(e.getMessage());
         }
     }
 
@@ -211,7 +211,7 @@ public class Indexing {
     public void deleteFiles(String path) {
         final File docDir = new File(path);
         if (!docDir.exists() || !docDir.canRead()) {
-            System.out.println("Document directory '" + docDir.getAbsolutePath() + "' does not exist or is not readable, please check the path");
+            LOG.error("Document directory '{}' does not exist or is not readable, please check the path.", docDir.getAbsolutePath());
             System.exit(1);
         }
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_31, analyzer);
@@ -234,7 +234,7 @@ public class Indexing {
                     }
                 }
             } else {
-                System.out.println("deleting " + file.getAbsolutePath());
+                LOG.info("Deleting file {}.",file.getAbsoluteFile());
                 writer.deleteDocuments(new Term("path",resolvePath(file)));
             }
         }
@@ -265,9 +265,9 @@ public class Indexing {
             stats += "Index size: " + indexSize + " bytes \n";
             stats += "Approximated size of indexed files: " + fileSize + " bytes \n";
 
-            System.out.println(stats);
+            LOG.info(stats);
         } catch (IOException | NumberFormatException e) {
-            System.out.println(e.getMessage());
+            LOG.error(e.getMessage());
         } 
     }
 
@@ -303,13 +303,13 @@ public class Indexing {
     }
 
     private void printTimes() {
-        System.out.println("---------------------------------");
-        System.out.println();
-        System.out.println(progress + " DONE in total time " + (System.currentTimeMillis() - startTime) + " ms,");
-        System.out.println("CPU time " + (getCpuTime()) + " ms");
-        System.out.println("user time " + (getUserTime()) + " ms");
-        MathTokenizer.printFormulaeCount();
-        System.out.println();
+        LOG.info("---------------------------------");
+        LOG.info(Settings.EMPTY_STRING);
+        LOG.info("{} DONE in total time {} ms",progress,System.currentTimeMillis() - startTime);
+        LOG.info("CPU time {} ms",getCpuTime());
+        LOG.info("user time {} ms",getUserTime());
+        MathTokenizer.printFormulaeCount(); // TODO
+        LOG.info(Settings.EMPTY_STRING);
     }
 
     private void countFiles(List<File> files) {

@@ -1,13 +1,15 @@
 package cz.muni.fi.mias.indexing.doc;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.document.Document;
 
 /**
@@ -18,7 +20,7 @@ import org.apache.lucene.document.Document;
  */
 public class FileExtDocumentHandler implements Callable {
 
-    private static final Logger LOG = Logger.getLogger(FileExtDocumentHandler.class.getName());
+    private static final Logger LOG = LogManager.getLogger(FileExtDocumentHandler.class);
     
     private File file;
     private String path;
@@ -69,10 +71,11 @@ public class FileExtDocumentHandler implements Callable {
             for (MIaSDocument doc : miasDocuments) {
                 result.addAll(doc.getDocuments());
             }
-        } catch (Exception e) {
-            System.out.println("Cannot handle file " + file.getAbsolutePath());
-            e.printStackTrace();
+        } catch (IOException ex) {
+            LOG.error("Cannot handle file {}", file.getAbsolutePath());
+            LOG.error(ex);
         }
+        
         return result;
     }
 
