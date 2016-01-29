@@ -11,12 +11,12 @@
     </File>
   </Appenders>
   <Loggers>
-      <Logger name="cz.muni" level="DEBUG">
+      <Logger name="cz.muni" level="trace">
           <AppenderRef ref="Console" />
           <AppenderRef ref="File" />
       </Logger>
-    <Root level="error">
+<!--    <Root level="trace">
       <AppenderRef ref="Console"/>
-    </Root>
+    </Root>-->
   </Loggers>
 </Configuration>

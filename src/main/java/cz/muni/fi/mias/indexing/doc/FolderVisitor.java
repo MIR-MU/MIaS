@@ -36,7 +36,7 @@ public class FolderVisitor implements RecursiveFileVisitor
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException
     {
-        if (visitedPaths.size() <= docLimit)
+        if (canContinue())
         {
             LOG.trace("Entering directory {}", dir);
             return FileVisitResult.CONTINUE;
@@ -51,7 +51,7 @@ public class FolderVisitor implements RecursiveFileVisitor
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
     {
-        if (visitedPaths.size() <= docLimit)
+        if (canContinue())
         {
             if (matcher.matches(file.getFileName()))
             {
@@ -90,5 +90,15 @@ public class FolderVisitor implements RecursiveFileVisitor
     public List<Path> getVisitedPaths()
     {
         return visitedPaths;
+    }
+    
+    private boolean canContinue()
+    {
+        if(docLimit == -1)
+        {
+            return true;
+        }
+        
+        return visitedPaths.size() <= docLimit;
     }
 }
