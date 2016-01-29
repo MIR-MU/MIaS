@@ -3,11 +3,15 @@ package cz.muni.fi.mias.indexing;
 import cz.muni.fi.mias.PayloadSimilarity;
 import cz.muni.fi.mias.Settings;
 import cz.muni.fi.mias.indexing.doc.FileExtDocumentHandler;
+import cz.muni.fi.mias.indexing.doc.FolderVisitor;
+import cz.muni.fi.mias.indexing.doc.RecursiveFileVisitor;
 import cz.muni.fi.mias.math.MathTokenizer;
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -89,31 +93,24 @@ public class Indexing {
         }
     }
 
-    private List<File> getDocs(File file) throws IOException {
-        List<File> result = new ArrayList<>();
-        getDocs(result, file);
-        return result;
-    }
-
-    private List<File> getDocs(List<File> fileList, File file) {
-        if (file.canRead()) {
-            if (file.isDirectory()) {
-                File[] files = file.listFiles();
-                if (files != null) {
-                    for (File file1 : files)
-                    {
-                        getDocs(fileList, file1);
-                    }
-                }
-            } else {
-                if (fileList.size() == docLimit) {
-                    return fileList;
-                } else if (isFileIndexable(file)){
-                    fileList.add(file);
-                }
-            }
+    private List<File> getDocs(File startPath) throws IOException {
+        if(!startPath.canRead())
+        {
+            throw new IllegalArgumentException("Given path is not a folder. # "+startPath);
         }
-        return fileList;
+        else
+        {
+            RecursiveFileVisitor fileVisitor = new FolderVisitor(docLimit);
+            Files.walkFileTree(startPath.toPath(), fileVisitor);
+            // TODO remove later
+            List<File> result = new ArrayList<>(fileVisitor.getVisitedPaths().size());
+            for(Path p : fileVisitor.getVisitedPaths())
+            {
+                result.add(p.toFile());
+            }
+            
+            return result;
+        }
     }
 
     private void indexDocsThreaded(List<File> files, IndexWriter writer) {
@@ -313,12 +310,6 @@ public class Indexing {
         System.out.println("user time " + (getUserTime()) + " ms");
         MathTokenizer.printFormulaeCount();
         System.out.println();
-    }
-
-    private boolean isFileIndexable(File file) {
-        String path = file.getAbsolutePath();
-        String ext = path.substring(path.lastIndexOf(".") + 1);
-        return ext.equals("html") || ext.equals("xhtml") || ext.equals("zip");
     }
 
     private void countFiles(List<File> files) {
