@@ -53,6 +53,7 @@ public class Searching {
     private String storagePath;
     private PayloadSimilarity ps = new PayloadSimilarity();
 //    private TitlesSuggester sug;
+    private int snippetsEnabledLimit = 1000;
 
     /**
      * Constructs new Searching on the index from the Settings file.
@@ -253,7 +254,7 @@ public class Searching {
             }
 
             String snippet = "Snippets disabled";
-            if (limit <= 100) {
+            if (limit <= snippetsEnabledLimit) {
                 InputStream snippetIs = getInputStreamFromDataPath(document);
                 if (snippetIs != null) {
                     SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
@@ -265,7 +266,7 @@ public class Searching {
                     snippetIs.close();
                 }
             } else {
-                snippet = "Snippets disabled for limit > 100";
+                snippet = "Snippets disabled for limit > " + snippetsEnabledLimit;
             }
             results.add(new Result(title, fullLocalPath, info, id, snippet));
         }
