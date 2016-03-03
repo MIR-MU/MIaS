@@ -8,19 +8,17 @@ import cz.muni.fi.mias.search.snippets.SnippetExtractor;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Enumeration;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -49,12 +47,14 @@ import org.apache.lucene.store.FSDirectory;
  * @since 14.5.2010
  */
 public class Searching {
+
     private static final Logger LOG = LogManager.getLogger(Searching.class);
     private IndexSearcher indexSearcher;
     private String storagePath;
     private PayloadSimilarity ps = new PayloadSimilarity();
 //    private TitlesSuggester sug;
-    private int snippetsEnabledLimit = 100;
+    private static final int snippetsEnabledLimit = 1000;
+    private static final long numberOfThreads = 32;
 
     /**
      * Constructs new Searching on the index from the Settings file.
@@ -92,7 +92,7 @@ public class Searching {
      * @param is InputStream with query input.
      */
     public void search(InputStream is) {
-        try(BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));) {
             if (!(is instanceof FileInputStream)) {
                 LOG.info("\nEnter query: ");
             }
@@ -131,7 +131,7 @@ public class Searching {
             TopDocs docs = indexSearcher.search(bq, Settings.getMaxResults());
 //            TopFieldDocs docs = indexSearcher.search(bq, null, Settings.getMaxResults(), Sort.RELEVANCE, true, false);
             long end = System.currentTimeMillis();
-            result.setCoreSearchTime(end-start);
+            result.setCoreSearchTime(end - start);
             result.setResults(getResults(offset, limit, new ArrayList<>(Arrays.asList(docs.scoreDocs)), bq, debug));
             result.setTotalResults(docs.totalHits);
             if (debug) {
@@ -223,11 +223,12 @@ public class Searching {
      * @throws IOException
      */
     private List<Result> getResults(int offset, int limit, List<ScoreDoc> docs, Query query, boolean debug) throws IOException {
-        List<Result> results = new ArrayList<>();
-        List<ScoreDoc> temp = docs.subList(offset, Math.min(offset + limit, docs.size()));
+        List<Result> results = Collections.synchronizedList(new ArrayList<>());
+        ConcurrentHashMap<Integer, SnippetExtractor> snippetExtractors = new ConcurrentHashMap<>();
+        List<ScoreDoc> scoredDocs = docs.subList(offset, Math.min(offset + limit, docs.size()));
 
         int snippetCounter = 0;
-        for (ScoreDoc sd : temp) {
+        for (ScoreDoc sd : scoredDocs) {
             snippetCounter++;
 
             Document document = indexSearcher.doc(sd.doc);
@@ -248,22 +249,22 @@ public class Searching {
             }
 
             String snippet = "Snippets disabled";
+            SnippetExtractor extractor = null;
             if (snippetCounter <= snippetsEnabledLimit) {
-                InputStream snippetIs = getInputStreamFromDataPath(document);
-                if (snippetIs != null) {
-                    SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
-                    snippet = extractor.getSnippet();
-                } else {
-                    LOG.info("Stream is null for snippet extraction {}",dataPath);
-                }
-                if (snippetIs != null) {
-                    snippetIs.close();
-                }
+                extractor = new NiceSnippetExtractor(document, storagePath, query, sd.doc, indexSearcher.getIndexReader());
             } else {
                 snippet = "Snippets disabled for result positions above " + snippetsEnabledLimit;
             }
-            results.add(new Result(title, fullLocalPath, info, id, snippet));
+            Result result = new Result(title, fullLocalPath, info, id, snippet);
+            results.add(result);
+            if (extractor != null) {
+                snippetExtractors.put(results.indexOf(result), extractor);
+            }
         }
+        // Parallel extraction of snippets
+        snippetExtractors.forEach(
+                numberOfThreads,
+                (resultIndex, extractor) -> results.get(resultIndex).setSnippet(extractor.getSnippet()));
         return results;
     }
 
@@ -278,10 +279,10 @@ public class Searching {
      */
     private void printResults(SearchResult searchResult, Query query, IndexSearcher searcher)
             throws IOException, CorruptIndexException {
-        LOG.info("Searching for: {}",query);
+        LOG.info("Searching for: {}", query);
         LOG.info("Time: {} ms", searchResult.getCoreSearchTime());
         int totalResults = searchResult.getTotalResults();
-        LOG.info("Total hits: {}",totalResults);
+        LOG.info("Total hits: {}", totalResults);
         if (totalResults == 0) {
             LOG.warn("-------------");
             LOG.warn("Nothing found");
@@ -300,17 +301,17 @@ public class Searching {
                     String title = result.getTitle();
                     if (title != null) {
                         if (title.length() > 60) {
-                            LOG.info("{} ...",title.substring(0, 60));
+                            LOG.info("{} ...", title.substring(0, 60));
                         } else {
                             LOG.info(title);
                         }
                     }
-                    LOG.info("id: {}",result.getId());
-                    LOG.info("Path: {}",result.getPath());
-                    LOG.info("Snippet: {}",result.getSnippet());
+                    LOG.info("id: {}", result.getId());
+                    LOG.info("Path: {}", result.getPath());
+                    LOG.info("Snippet: {}", result.getSnippet());
                     LOG.info("----------------------------------------------------");
                 }
-                LOG.info("Showing results {}-{}",start+1,end);
+                LOG.info("Showing results {}-{}", start + 1, end);
                 if (end == searchResult.getResults().size()) {
                     break;
                 }
@@ -324,41 +325,4 @@ public class Searching {
         }
     }
 
-    private InputStream getInputStreamFromDataPath(Document document) {
-
-        InputStream is = null;
-        try {
-            String fullLocalPath = document.get("path");
-            String dataPath = storagePath + fullLocalPath;
-            File f = new File(dataPath);
-
-            if (f.exists() && !dataPath.endsWith("zip")) {
-                is = new FileInputStream(f);
-            }
-            if (dataPath.endsWith("zip")) {
-                if (f.exists()) {
-                    String archivePath = document.get("archivepath");
-                    ZipFile zipFile = new ZipFile(dataPath);
-                    Enumeration e = zipFile.entries();
-                    while (e.hasMoreElements() && is == null) {
-                        ZipEntry entry = (ZipEntry) e.nextElement();
-                        if (entry.getName().equals(archivePath)) {
-                            is = zipFile.getInputStream(entry);
-                        }
-                    }
-                } else {
-                    String unzippedPath = dataPath.substring(0, dataPath.lastIndexOf(File.separator)) + File.separator + document.get("archivepath");
-                    f = new File(unzippedPath);
-                    if (f.exists()) {
-                        is = new FileInputStream(f);
-                    }
-                }
-            }
-
-        } catch (FileNotFoundException ex) {
-            LOG.fatal(ex);
-        } finally {
-            return is;
-        }
-    }
 }
