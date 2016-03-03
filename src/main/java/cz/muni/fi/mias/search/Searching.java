@@ -6,7 +6,6 @@ import cz.muni.fi.mias.math.MathTokenizer;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -14,14 +13,13 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.Enumeration;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.CorruptIndexException;
@@ -53,7 +51,8 @@ public class Searching {
     private String storagePath;
     private PayloadSimilarity ps = new PayloadSimilarity();
 //    private TitlesSuggester sug;
-    private int snippetsEnabledLimit = 100;
+    private static final int snippetsEnabledLimit = 1000;
+    private static final long numberOfThreads = 32;
 
     /**
      * Constructs new Searching on the index from the Settings file.
@@ -232,11 +231,12 @@ public class Searching {
      * @throws IOException
      */
     private List<Result> getResults(int offset, int limit, List<ScoreDoc> docs, Query query, boolean debug) throws IOException {
-        List<Result> results = new ArrayList<>();
-        List<ScoreDoc> temp = docs.subList(offset, Math.min(offset + limit, docs.size()));
+        List<Result> results = Collections.synchronizedList(new ArrayList<>());
+        ConcurrentHashMap<Integer, SnippetExtractor> snippetExtractors = new ConcurrentHashMap<>();
+        List<ScoreDoc> scoredDocs = docs.subList(offset, Math.min(offset + limit, docs.size()));
 
         int snippetCounter = 0;
-        for (ScoreDoc sd : temp) {
+        for (ScoreDoc sd : scoredDocs) {
             snippetCounter++;
 
             Document document = indexSearcher.doc(sd.doc);
@@ -257,22 +257,22 @@ public class Searching {
             }
 
             String snippet = "Snippets disabled";
+            SnippetExtractor extractor = null;
             if (snippetCounter <= snippetsEnabledLimit) {
-                InputStream snippetIs = getInputStreamFromDataPath(document);
-                if (snippetIs != null) {
-                    SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
-                    snippet = extractor.getSnippet();
-                } else {
-                    System.out.println("Stream is null for snippet extraction " + dataPath);
-                }
-                if (snippetIs != null) {
-                    snippetIs.close();
-                }
+                extractor = new NiceSnippetExtractor(document, storagePath, query, sd.doc, indexSearcher.getIndexReader());
             } else {
                 snippet = "Snippets disabled for result positions above " + snippetsEnabledLimit;
             }
-            results.add(new Result(title, fullLocalPath, info, id, snippet));
+            Result result = new Result(title, fullLocalPath, info, id, snippet);
+            results.add(result);
+            if (extractor != null) {
+                snippetExtractors.put(results.indexOf(result), extractor);
+            }
         }
+        // Parallel extraction of snippets
+        snippetExtractors.forEach(
+                numberOfThreads,
+                (resultIndex, extractor) -> results.get(resultIndex).setSnippet(extractor.getSnippet()));
         return results;
     }
 
@@ -331,45 +331,5 @@ public class Searching {
                 start = start + hitsPP;
             }
         }
-    }
-
-    private InputStream getInputStreamFromDataPath(Document document) {
-
-        InputStream is = null;
-
-        try {
-            String fullLocalPath = document.get("path");
-            String dataPath = storagePath + fullLocalPath;
-            File f = new File(dataPath);
-
-            if (f.exists() && !dataPath.endsWith("zip")) {
-                is = new FileInputStream(f);
-            }
-            if (dataPath.endsWith("zip")) {
-                if (f.exists()) {
-                    String archivePath = document.get("archivepath");
-                    ZipFile zipFile = new ZipFile(dataPath);
-                    Enumeration e = zipFile.entries();
-                    while (e.hasMoreElements() && is == null) {
-                        ZipEntry entry = (ZipEntry) e.nextElement();
-                        if (entry.getName().equals(archivePath)) {
-                            is = zipFile.getInputStream(entry);
-                        }
-                    }
-                } else {
-                    String unzippedPath = dataPath.substring(0, dataPath.lastIndexOf(File.separator)) + File.separator + document.get("archivepath");
-                    f = new File(unzippedPath);
-                    if (f.exists()) {
-                        is = new FileInputStream(f);
-                    }
-                }
-            }
-
-        } catch (FileNotFoundException ex) {
-            Logger.getLogger(Searching.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            return is;
-        }
-
     }
 }

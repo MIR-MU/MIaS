@@ -2,6 +2,8 @@ package cz.muni.fi.mias.search;
 
 import cz.muni.fi.mias.Settings;
 import cz.muni.fi.mias.MIaSUtils;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,6 +11,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -16,6 +19,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import org.apache.lucene.document.Document;
 import org.apache.lucene.index.AtomicReaderContext;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
@@ -37,6 +43,11 @@ public class NiceSnippetExtractor implements SnippetExtractor {
     private int docNumber;
     private IndexReader indexReader;
     private InputStream inputStream;
+
+    public NiceSnippetExtractor(Document document, String storagePath, Query q, int docNumber, IndexReader indexReader) {
+        this(null, q, docNumber, indexReader);
+        this.inputStream = getInputStreamFromDataPath(document, storagePath);
+    }
 
     public NiceSnippetExtractor(InputStream in, Query q, int docNumber, IndexReader indexReader) {
         this.inputStream = in;
@@ -102,6 +113,11 @@ public class NiceSnippetExtractor implements SnippetExtractor {
     }
 
     private String getSnippet(List<Span> spans, List<Query> nstqs) throws FileNotFoundException, IOException {
+
+        if (inputStream == null) {
+            return "Snippet extraction failed";
+        }
+
         String content = MIaSUtils.getContent(inputStream);
 
         List<Snippet> snippets = getDocSnippets(spans, nstqs, content);
@@ -117,7 +133,9 @@ public class NiceSnippetExtractor implements SnippetExtractor {
                 result += " " + text;
             }
         }
+
         return result;
+
     }
 
     private static boolean isDots(String text, boolean beggining) {
@@ -280,6 +298,43 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         int tagstart1 = content.lastIndexOf(">", start);
         int tagstart2 = content.lastIndexOf("<", start);
         return tagstart1 < tagstart2;
+    }
+    
+    private InputStream getInputStreamFromDataPath(Document document, String storagePath) {
+        InputStream is = null;
+        try {
+            String fullLocalPath = document.get("path");
+            String dataPath = storagePath + fullLocalPath;
+            File f = new File(dataPath);
+
+            if (f.exists() && !dataPath.endsWith("zip")) {
+                is = new FileInputStream(f);
+            }
+            if (dataPath.endsWith("zip")) {
+                if (f.exists()) {
+                    String archivePath = document.get("archivepath");
+                    ZipFile zipFile = new ZipFile(dataPath);
+                    Enumeration e = zipFile.entries();
+                    while (e.hasMoreElements() && is == null) {
+                        ZipEntry entry = (ZipEntry) e.nextElement();
+                        if (entry.getName().equals(archivePath)) {
+                            is = zipFile.getInputStream(entry);
+                        }
+                    }
+                } else {
+                    String unzippedPath = dataPath.substring(0, dataPath.lastIndexOf(File.separator)) + File.separator + document.get("archivepath");
+                    f = new File(unzippedPath);
+                    if (f.exists()) {
+                        is = new FileInputStream(f);
+                    }
+                }
+            }
+
+        } catch (FileNotFoundException ex) {
+            Logger.getLogger(NiceSnippetExtractor.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            return is;
+        }
     }
 
     public class Snippet {
