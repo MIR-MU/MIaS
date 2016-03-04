@@ -43,10 +43,13 @@ public class NiceSnippetExtractor implements SnippetExtractor {
     private int docNumber;
     private IndexReader indexReader;
     private InputStream inputStream;
+    private Document document;
+    private String storagePath;
 
     public NiceSnippetExtractor(Document document, String storagePath, Query q, int docNumber, IndexReader indexReader) {
         this(null, q, docNumber, indexReader);
-        this.inputStream = getInputStreamFromDataPath(document, storagePath);
+        this.document = document;
+        this.storagePath = storagePath;
     }
 
     public NiceSnippetExtractor(InputStream in, Query q, int docNumber, IndexReader indexReader) {
@@ -113,11 +116,22 @@ public class NiceSnippetExtractor implements SnippetExtractor {
 
     private String getSnippet(List<Span> spans, List<Query> nstqs) throws FileNotFoundException, IOException {
 
-        if (inputStream == null) {
-            return "Snippet extraction failed";
+        String content = "Snippet extraction failed";
+        if (inputStream == null) { // Instance invoded by document & storage path constructor instead of inputstream constructor
+            inputStream = getInputStreamFromDataPath();
+            if (inputStream == null) {
+                String fullLocalPath = document.get("path");
+                String dataPath = storagePath + fullLocalPath;
+                LOG.info("Stream is null for snippet extraction {}", dataPath);
+                return content;
+            }
         }
-
-        String content = MIaSUtils.getContent(inputStream);
+        if (inputStream != null) {
+            content = MIaSUtils.getContent(inputStream);
+            inputStream.close();
+        } else {
+            return content;
+        }
 
         List<Snippet> snippets = getDocSnippets(spans, nstqs, content);
 
@@ -299,8 +313,11 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         return tagstart1 < tagstart2;
     }
 
-    private InputStream getInputStreamFromDataPath(Document document, String storagePath) {
+    private InputStream getInputStreamFromDataPath() {
         InputStream is = null;
+        if (document == null || storagePath == null) {
+            return is;
+        }
         try {
             String fullLocalPath = document.get("path");
             String dataPath = storagePath + fullLocalPath;
