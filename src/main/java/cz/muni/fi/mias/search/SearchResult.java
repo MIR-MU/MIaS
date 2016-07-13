@@ -8,23 +8,24 @@ import java.util.List;
 
 /**
  * Container class for results from a single search.
- * 
+ *
  * @author Martin Liska
  */
 public class SearchResult {
-    
+
     private List<Result> results;
     private int totalResults;
     private long coreSearchTime;
     private long totalSearchTime;
     private String query;
+    private String processedQuery;
     private String luceneQuery;
 
     public SearchResult() {
     }
 
     /**
-     * 
+     *
      * @return String form of the final Lucene query
      */
     public String getLuceneQuery() {
@@ -34,9 +35,9 @@ public class SearchResult {
     public void setLuceneQuery(String luceneQuery) {
         this.luceneQuery = luceneQuery;
     }
-    
+
     /**
-     * 
+     *
      * @return List of results
      */
     public List<Result> getResults() {
@@ -48,7 +49,7 @@ public class SearchResult {
     }
 
     /**
-     * 
+     *
      * @return Total number of matched documents
      */
     public int getTotalResults() {
@@ -58,10 +59,11 @@ public class SearchResult {
     public void setTotalResults(int totalResults) {
         this.totalResults = totalResults;
     }
-    
+
     /**
-     * 
-     * @return search time of Lucene core, without extracting information about the hits
+     *
+     * @return search time of Lucene core, without extracting information about
+     * the hits
      */
     public long getCoreSearchTime() {
         return coreSearchTime;
@@ -72,7 +74,7 @@ public class SearchResult {
     }
 
     /**
-     * 
+     *
      * @return search time including hits information extraction
      */
     public long getTotalSearchTime() {
@@ -84,7 +86,6 @@ public class SearchResult {
     }
 
     /**
-     * 
      * @return original query as posted to the system
      */
     public String getQuery() {
@@ -94,5 +95,16 @@ public class SearchResult {
     public void setQuery(String query) {
         this.query = query;
     }
-    
+
+    /**
+     * @return processed query as used by the system for search
+     */
+    public String getProcessedQuery() {
+        return processedQuery;
+    }
+
+    public void setProcessedQuery(String processedQuery) {
+        this.processedQuery = processedQuery;
+    }
+
 }

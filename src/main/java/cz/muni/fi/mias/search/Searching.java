@@ -15,7 +15,9 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Enumeration;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +51,7 @@ import org.apache.lucene.store.FSDirectory;
  * @since 14.5.2010
  */
 public class Searching {
+
     private static final Logger LOG = LogManager.getLogger(Searching.class);
     private IndexSearcher indexSearcher;
     private String storagePath;
@@ -92,7 +95,7 @@ public class Searching {
      * @param is InputStream with query input.
      */
     public void search(InputStream is) {
-        try(BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));) {
             if (!(is instanceof FileInputStream)) {
                 LOG.info("\nEnter query: ");
             }
@@ -127,16 +130,19 @@ public class Searching {
         result.setQuery(query);
         try {
             long start = System.currentTimeMillis();
-            Query bq = parseInput(query, variant);
+            ImmutablePair<Query, String> parsedQuery = parseInput(query, variant);
+            Query bq = parsedQuery.getLeft();
+            String queryXMLFormulae = parsedQuery.getRight();
             TopDocs docs = indexSearcher.search(bq, Settings.getMaxResults());
 //            TopFieldDocs docs = indexSearcher.search(bq, null, Settings.getMaxResults(), Sort.RELEVANCE, true, false);
             long end = System.currentTimeMillis();
-            result.setCoreSearchTime(end-start);
+            result.setCoreSearchTime(end - start);
             result.setResults(getResults(offset, limit, new ArrayList<>(Arrays.asList(docs.scoreDocs)), bq, debug));
             result.setTotalResults(docs.totalHits);
             if (debug) {
                 result.setLuceneQuery(bq.toString());
             }
+            result.setProcessedQuery(queryXMLFormulae);
             result.setTotalSearchTime(System.currentTimeMillis() - start);
             if (print) {
                 printResults(result, bq, indexSearcher);
@@ -156,33 +162,43 @@ public class Searching {
      * @return Query instance representing input query. This query is in form of
      * (formula_1 or ... or formula_n) and (text queries)
      */
-    private Query parseInput(String queryString, MathTokenizer.MathMLType variant) {
+    private ImmutablePair<Query, String> parseInput(String queryString, MathTokenizer.MathMLType variant) {
         BooleanQuery result = new BooleanQuery();
+        List<ImmutablePair<String, Float>> qxf = new ArrayList<>();
+        StringBuilder queryXMLFormulae = new StringBuilder();
         String[] sep = MathSeparator.separate(queryString, "");
         if (sep[1].length() > 0) {
             BooleanQuery bq = new BooleanQuery();
             String mathQuery = "<?xml version='1.0' encoding='UTF-8'?><!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN\" \"http://www.w3.org/TR/MathML2/dtd/xhtml-math11-f.dtd\"><html>" + sep[1] + "</html>";
             if (variant == MathTokenizer.MathMLType.PRESENTATION || variant == MathTokenizer.MathMLType.BOTH) {
-                addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.PRESENTATION);
+                Map<String, Float> qf = addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.PRESENTATION);
+                qf.forEach((xml, weight) -> qxf.add(new ImmutablePair<>(xml, weight)));
             }
             if (variant == MathTokenizer.MathMLType.CONTENT || variant == MathTokenizer.MathMLType.BOTH) {
-                addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.CONTENT);
+                Map<String, Float> qf = addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.CONTENT);
+                qf.forEach((xml, weight) -> qxf.add(new ImmutablePair<>(xml, weight)));
             }
             result.add(bq, BooleanClause.Occur.MUST);
+            Collections.sort(qxf, (a, b) -> b.getRight().compareTo(a.getRight()));
+            qxf.forEach((i) -> queryXMLFormulae
+                    .append("formula with weight ").append(i.getRight())
+                    .append(":\n").append(i.getLeft())
+                    .append("\n"));
         }
         if (sep[0].length() > 0) {
             QueryParser parser = new MultiFieldQueryParser(new String[]{"content", "title"}, new StandardAnalyzer());
             try {
+                queryXMLFormulae.append("text: ").append(sep[0]).append("\n");
                 Query query = parser.parse(sep[0]);
                 result.add(query, BooleanClause.Occur.MUST);
             } catch (ParseException pe) {
                 LOG.error(pe.getMessage());
             }
         }
-        return result;
+        return new ImmutablePair<>(result, queryXMLFormulae.toString());
     }
 
-    private void addMathQueries(String mathQuery, BooleanQuery bq, MathTokenizer.MathMLType variant) {
+    private Map<String, Float> addMathQueries(String mathQuery, BooleanQuery bq, MathTokenizer.MathMLType variant) {
         MathTokenizer mt = new MathTokenizer(new StringReader(mathQuery), false, variant);
         try {
             mt.reset();
@@ -194,6 +210,7 @@ public class Searching {
         for (Query q : cQueries) {
             bq.add(q, BooleanClause.Occur.SHOULD);
         }
+        return mt.getQueryXMLFormulae();
     }
 
     private List<Query> getMathQueries(Map<String, Float> queryForms, MathTokenizer.MathMLType type) {
@@ -254,7 +271,7 @@ public class Searching {
                     SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
                     snippet = extractor.getSnippet();
                 } else {
-                    LOG.info("Stream is null for snippet extraction {}",dataPath);
+                    LOG.info("Stream is null for snippet extraction {}", dataPath);
                 }
                 if (snippetIs != null) {
                     snippetIs.close();
@@ -278,10 +295,10 @@ public class Searching {
      */
     private void printResults(SearchResult searchResult, Query query, IndexSearcher searcher)
             throws IOException, CorruptIndexException {
-        LOG.info("Searching for: {}",query);
+        LOG.info("Searching for: {}", query);
         LOG.info("Time: {} ms", searchResult.getCoreSearchTime());
         int totalResults = searchResult.getTotalResults();
-        LOG.info("Total hits: {}",totalResults);
+        LOG.info("Total hits: {}", totalResults);
         if (totalResults == 0) {
             LOG.warn("-------------");
             LOG.warn("Nothing found");
@@ -300,17 +317,17 @@ public class Searching {
                     String title = result.getTitle();
                     if (title != null) {
                         if (title.length() > 60) {
-                            LOG.info("{} ...",title.substring(0, 60));
+                            LOG.info("{} ...", title.substring(0, 60));
                         } else {
                             LOG.info(title);
                         }
                     }
-                    LOG.info("id: {}",result.getId());
-                    LOG.info("Path: {}",result.getPath());
-                    LOG.info("Snippet: {}",result.getSnippet());
+                    LOG.info("id: {}", result.getId());
+                    LOG.info("Path: {}", result.getPath());
+                    LOG.info("Snippet: {}", result.getSnippet());
                     LOG.info("----------------------------------------------------");
                 }
-                LOG.info("Showing results {}-{}",start+1,end);
+                LOG.info("Showing results {}-{}", start + 1, end);
                 if (end == searchResult.getResults().size()) {
                     break;
                 }
