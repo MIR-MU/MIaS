@@ -126,11 +126,15 @@ public class Searching {
     }
 
     public SearchResult search(String query, boolean print, int offset, int limit, boolean debug, MathTokenizer.MathMLType variant) {
+        return search(query, print, offset, limit, debug, MathTokenizer.MathMLType.BOTH, false);
+    }
+
+    public SearchResult search(String query, boolean print, int offset, int limit, boolean debug, MathTokenizer.MathMLType variant, boolean indexinglikequeryproc) {
         SearchResult result = new SearchResult();
         result.setQuery(query);
         try {
             long start = System.currentTimeMillis();
-            ImmutablePair<Query, String> parsedQuery = parseInput(query, variant);
+            ImmutablePair<Query, String> parsedQuery = parseInput(query, variant, indexinglikequeryproc);
             Query bq = parsedQuery.getLeft();
             String queryXMLFormulae = parsedQuery.getRight();
             TopDocs docs = indexSearcher.search(bq, Settings.getMaxResults());
@@ -162,7 +166,7 @@ public class Searching {
      * @return Query instance representing input query. This query is in form of
      * (formula_1 or ... or formula_n) and (text queries)
      */
-    private ImmutablePair<Query, String> parseInput(String queryString, MathTokenizer.MathMLType variant) {
+    private ImmutablePair<Query, String> parseInput(String queryString, MathTokenizer.MathMLType variant, boolean indexinglikequeryproc) {
         BooleanQuery result = new BooleanQuery();
         List<ImmutablePair<String, Float>> qxf = new ArrayList<>();
         StringBuilder queryXMLFormulae = new StringBuilder();
@@ -171,11 +175,11 @@ public class Searching {
             BooleanQuery bq = new BooleanQuery();
             String mathQuery = "<?xml version='1.0' encoding='UTF-8'?><!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN\" \"http://www.w3.org/TR/MathML2/dtd/xhtml-math11-f.dtd\"><html>" + sep[1] + "</html>";
             if (variant == MathTokenizer.MathMLType.PRESENTATION || variant == MathTokenizer.MathMLType.BOTH) {
-                Map<String, Float> qf = addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.PRESENTATION);
+                Map<String, Float> qf = addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.PRESENTATION, indexinglikequeryproc);
                 qf.forEach((xml, weight) -> qxf.add(new ImmutablePair<>(xml, weight)));
             }
             if (variant == MathTokenizer.MathMLType.CONTENT || variant == MathTokenizer.MathMLType.BOTH) {
-                Map<String, Float> qf = addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.CONTENT);
+                Map<String, Float> qf = addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.CONTENT, indexinglikequeryproc);
                 qf.forEach((xml, weight) -> qxf.add(new ImmutablePair<>(xml, weight)));
             }
             result.add(bq, BooleanClause.Occur.MUST);
@@ -198,8 +202,8 @@ public class Searching {
         return new ImmutablePair<>(result, queryXMLFormulae.toString());
     }
 
-    private Map<String, Float> addMathQueries(String mathQuery, BooleanQuery bq, MathTokenizer.MathMLType variant) {
-        MathTokenizer mt = new MathTokenizer(new StringReader(mathQuery), false, variant);
+    private Map<String, Float> addMathQueries(String mathQuery, BooleanQuery bq, MathTokenizer.MathMLType variant, boolean indexinglikequeryproc) {
+        MathTokenizer mt = new MathTokenizer(new StringReader(mathQuery), indexinglikequeryproc, variant);
         try {
             mt.reset();
         } catch (IOException ex) {
