@@ -126,11 +126,11 @@ public class Searching {
     }
 
     public SearchResult search(String query, boolean print, int offset, int limit, boolean debug, MathTokenizer.MathMLType variant) {
-        return search(query, print, offset, limit, debug, MathTokenizer.MathMLType.BOTH, false);
+        return search(query, print, offset, limit, debug, variant, false);
     }
 
     public SearchResult search(String query, boolean print, int offset, int limit, boolean debug, MathTokenizer.MathMLType variant, boolean extractSubformulae) {
-        return search(query, print, offset, limit, debug, MathTokenizer.MathMLType.BOTH, extractSubformulae, extractSubformulae);
+        return search(query, print, offset, limit, debug, variant, extractSubformulae, extractSubformulae);
     }
 
     public SearchResult search(String query, boolean print, int offset, int limit, boolean debug, MathTokenizer.MathMLType variant, boolean extractSubformulae, boolean reduceWeighting) {
