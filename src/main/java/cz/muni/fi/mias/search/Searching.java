@@ -21,6 +21,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.apache.logging.log4j.LogManager;
@@ -38,10 +39,15 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TimeLimitingCollector;
+import org.apache.lucene.search.TimeLimitingCollector.TimeExceededException;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopScoreDocCollector;
+import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.payloads.AveragePayloadFunction;
 import org.apache.lucene.search.payloads.PayloadTermQuery;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.Counter;
 
 /**
  * Searching class responsible for searching over current index.
@@ -58,6 +64,8 @@ public class Searching {
     private PayloadSimilarity ps = new PayloadSimilarity();
 //    private TitlesSuggester sug;
     private int snippetsEnabledLimit = 100;
+    private static final int searchTimeLimiterTickLengthMilisec = 1000; // 1 second
+    private static final int searchTimeLimiterAllowedTicks = 30; // 30 seconds
 
     /**
      * Constructs new Searching on the index from the Settings file.
@@ -149,7 +157,39 @@ public class Searching {
             ImmutablePair<Query, String> parsedQuery = parseInput(query, variant, extractSubformulae, reduceWeighting);
             Query bq = parsedQuery.getLeft();
             String queryXMLFormulae = parsedQuery.getRight();
-            TopDocs docs = indexSearcher.search(bq, Settings.getMaxResults());
+            Counter clock = Counter.newCounter(true);
+            AtomicBoolean clockTicking = new AtomicBoolean(true);
+            new Thread() {
+                public void run() {
+                    while (clockTicking.get()) { // Ticking until told to stop
+                        clock.addAndGet(1); // Count one more tick
+                        try {
+                            LOG.debug("Search time limiter ticked to " + clock.get() + " (ticking every " + searchTimeLimiterTickLengthMilisec + " miliseconds)");
+                            Thread.sleep(searchTimeLimiterTickLengthMilisec); // Tick length
+                        } catch (InterruptedException ex) {
+                            LOG.error("Search time limiter ticking interrupted", ex);
+                        }
+                    }
+                    LOG.debug("Search time limiter ticking stopped at " + clock.get());
+                }
+            }.start();
+            Weight weight = indexSearcher.createNormalizedWeight(bq);
+            TopScoreDocCollector collector = TopScoreDocCollector.create(Settings.getMaxResults(), !weight.scoresDocsOutOfOrder());
+            TimeLimitingCollector timeLimitingCollector = new TimeLimitingCollector(collector, clock, searchTimeLimiterAllowedTicks);
+            long clockBaseline = clock.get();
+            timeLimitingCollector.setBaseline(clockBaseline);
+            LOG.debug("Search time limiter clock baseline set to {}", clockBaseline);
+            try {
+                indexSearcher.search(bq, timeLimitingCollector);
+            } catch (TimeExceededException ex) {
+                LOG.warn("Search time limiter interrupted search thread (search limit set to "
+                        + (searchTimeLimiterTickLengthMilisec * searchTimeLimiterAllowedTicks)
+                        + " miliseconds)");
+            } finally {
+                clockTicking.set(false); // Notify clock ticking thread we are finished
+                LOG.debug("Search time limiter clock instructed to stop ticking");
+            }
+            TopDocs docs = collector.topDocs();
 //            TopFieldDocs docs = indexSearcher.search(bq, null, Settings.getMaxResults(), Sort.RELEVANCE, true, false);
             long end = System.currentTimeMillis();
             result.setCoreSearchTime(end - start);
