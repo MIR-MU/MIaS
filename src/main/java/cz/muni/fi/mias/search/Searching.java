@@ -14,7 +14,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -189,11 +188,11 @@ public class Searching {
                 clockTicking.set(false); // Notify clock ticking thread we are finished
                 LOG.debug("Search time limiter clock instructed to stop ticking");
             }
-            TopDocs docs = collector.topDocs();
+            TopDocs docs = collector.topDocs(offset, limit);
 //            TopFieldDocs docs = indexSearcher.search(bq, null, Settings.getMaxResults(), Sort.RELEVANCE, true, false);
             long end = System.currentTimeMillis();
             result.setCoreSearchTime(end - start);
-            result.setResults(getResults(offset, limit, new ArrayList<>(Arrays.asList(docs.scoreDocs)), bq, debug));
+            result.setResults(getResults(docs.scoreDocs, bq, debug));
             result.setTotalResults(docs.totalHits);
             if (debug) {
                 result.setLuceneQuery(bq.toString());
@@ -287,20 +286,17 @@ public class Searching {
     /**
      * Constructs the list with the results.
      *
-     * @param offset
-     * @param limit
      * @param docs
      * @param query
      * @param debug
      * @return
      * @throws IOException
      */
-    private List<Result> getResults(int offset, int limit, List<ScoreDoc> docs, Query query, boolean debug) throws IOException {
+    private List<Result> getResults(ScoreDoc[] docs, Query query, boolean debug) throws IOException {
         List<Result> results = new ArrayList<>();
-        List<ScoreDoc> temp = docs.subList(offset, Math.min(offset + limit, docs.size()));
 
         int snippetCounter = 0;
-        for (ScoreDoc sd : temp) {
+        for (ScoreDoc sd : docs) {
             snippetCounter++;
 
             Document document = indexSearcher.doc(sd.doc);
