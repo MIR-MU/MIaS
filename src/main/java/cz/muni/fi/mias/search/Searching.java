@@ -16,10 +16,12 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,7 +29,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.apache.logging.log4j.LogManager;
@@ -72,8 +73,8 @@ public class Searching {
     private int snippetsEnabledLimit = 100;
     private static final int searchTimeLimiterTickLengthMillisec = 1000; // 1 second
     private static final int searchTimeLimiterAllowedTicks = 30; // 30 seconds
-    private static final int snippetExtractionTimeoutMillisec = 3000; // 3 seconds
-    private static final int snippetExtractionFinishJobsTimeoutMillisec = 2000; // 2 seconds
+    private static final int snippetExtractionTimeoutMillisec = 500; // 0.5 seconds
+    private static final int snippetExtractionNumOfThreads = (int) Math.round(0.9 * Runtime.getRuntime().availableProcessors()); // Use roughly 90% of available CPU cores for parallel extraction of snippets
 
     /**
      * Constructs new Searching on the index from the Settings file.
@@ -304,11 +305,19 @@ public class Searching {
     private List<Result> getResults(ScoreDoc[] docs, Query query, boolean debug) throws IOException {
         List<Result> results = new ArrayList<>();
 
-        int snippetCounter = 0;
-        for (ScoreDoc sd : docs) {
-            snippetCounter++;
+        // Extract snippets in separate thread with time limit on processing.
+        // See:
+        //   https://stackoverflow.com/questions/20500003/setting-a-maximum-execution-time-for-a-method-thread
+        //   https://stackoverflow.com/questions/10504172/how-to-shutdown-an-executorservice
+        //   https://stackoverflow.com/questions/2733356/killing-thread-after-some-specified-time-limit-in-java
+        //   https://stackoverflow.com/questions/3590000/what-does-java-lang-thread-interrupt-do
+        ExecutorService snippetsExtractionExecutor = Executors.newFixedThreadPool(snippetExtractionNumOfThreads);
+        HashMap<Integer, Future<String>> snippetExtractionJobs = new HashMap<>(Math.min(docs.length, snippetsEnabledLimit));
 
-            LOG.debug("Getting result " + snippetCounter + ": doc id " + sd.doc);
+        int resultCounter = 0;
+        for (ScoreDoc sd : docs) {
+
+            LOG.debug("Getting result " + (resultCounter + 1) + ": doc id " + sd.doc);
 
             Document document = indexSearcher.doc(sd.doc);
             String fullLocalPath = document.get("path");
@@ -327,19 +336,12 @@ public class Searching {
                 id = document.get("id");
             }
 
-            AtomicReference<String> snippet = new AtomicReference<>("[[snippets disabled]]");
-            if (snippetCounter <= snippetsEnabledLimit) {
-
-                // Extract snippets in separate thread with time limit on processing.
-                // See:
-                //   https://stackoverflow.com/questions/20500003/setting-a-maximum-execution-time-for-a-method-thread
-                //   https://stackoverflow.com/questions/10504172/how-to-shutdown-an-executorservice
-                //   https://stackoverflow.com/questions/2733356/killing-thread-after-some-specified-time-limit-in-java
-                //   https://stackoverflow.com/questions/3590000/what-does-java-lang-thread-interrupt-do
-                ExecutorService executor = Executors.newFixedThreadPool(1);
-                Future<?> snippetExtractionJob = executor.submit(new Runnable() {
+            String snippet = "[[snippets disabled]]";
+            if (resultCounter < snippetsEnabledLimit) {
+                Future<String> snippetExtractionJob = snippetsExtractionExecutor.submit(new Callable<String>() {
                     @Override
-                    public void run() {
+                    public String call() {
+                        String extractedSnippet = null;
                         try {
                             InputStream snippetIs;
                             synchronized (document) {
@@ -347,7 +349,7 @@ public class Searching {
                             }
                             if (snippetIs != null) {
                                 SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
-                                snippet.set(extractor.getSnippet());
+                                extractedSnippet = extractor.getSnippet();
                             } else {
                                 LOG.warn("Stream is null for snippet extraction {}", dataPath);
                             }
@@ -361,34 +363,41 @@ public class Searching {
                         } catch (InterruptedException ex) {
                             LOG.warn("Snippet extraction job for document id " + sd.doc + " was interrupted", ex);
                         }
+                        return extractedSnippet;
                     }
                 });
-                executor.shutdown(); // reject all further submissions of new jobs to the executor
-                try {
-                    // wait given amount of time to finish the snippet extraction job
-                    snippetExtractionJob.get(snippetExtractionTimeoutMillisec, TimeUnit.MILLISECONDS);
-                } catch (InterruptedException ex) {
-                    LOG.warn("Snippet extraction job for document id " + sd.doc + " was interrupted", ex);
-                } catch (ExecutionException ex) {
-                    LOG.error("Snippet extraction job for document id " + sd.doc + " failed", ex);
-                } catch (TimeoutException ex) {
-                    snippetExtractionJob.cancel(true); // interrupt the job
-                    LOG.warn("Snippet extraction job for document id " + sd.doc + " canceled due to timeout of " + snippetExtractionTimeoutMillisec + " ms");
-                    snippet.set("[[snippet extraction timeout]]");
-                }
-                try {
-                    // wait all unfinished tasks for given amount of time
-                    if (!executor.awaitTermination(snippetExtractionFinishJobsTimeoutMillisec, TimeUnit.MILLISECONDS)) {
-                        executor.shutdownNow(); // force them to quit by interrupting
-                    }
-                } catch (InterruptedException ex) {
-                    LOG.error("Snippet extraction jobs interruption failed", ex);
-                }
+                snippetExtractionJobs.put(resultCounter, snippetExtractionJob);
             } else {
-                snippet.set("[[snippets disabled for result positions above " + snippetsEnabledLimit + "]]");
+                snippet = "[[snippets disabled for result positions above " + snippetsEnabledLimit + "]]";
             }
-            results.add(new Result(title, fullLocalPath, info, id, snippet.get()));
+
+            results.add(new Result(title, fullLocalPath, info, id, snippet));
+
+            resultCounter++;
+
         }
+        snippetsExtractionExecutor.shutdown(); // reject all further submissions of new jobs to the executor
+
+        for (Map.Entry<Integer, Future<String>> numberedSnippetExtractionJob : snippetExtractionJobs.entrySet()) {
+            Integer resultId = numberedSnippetExtractionJob.getKey();
+            Future<String> snippetExtractionJob = numberedSnippetExtractionJob.getValue();
+            String extractedSnippet = null;
+            try {
+                // wait given amount of time to finish the snippet extraction job
+                extractedSnippet = snippetExtractionJob.get(snippetExtractionTimeoutMillisec, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException ex) {
+                LOG.warn("Snippet extraction job for document id " + docs[resultId].doc + " was interrupted", ex);
+            } catch (ExecutionException ex) {
+                LOG.error("Snippet extraction job for document id " + docs[resultId].doc + " failed", ex);
+            } catch (TimeoutException ex) {
+                snippetExtractionJob.cancel(true); // interrupt the job
+                LOG.warn("Snippet extraction job for document id " + docs[resultId].doc + " canceled due to timeout of " + snippetExtractionTimeoutMillisec + " ms");
+                extractedSnippet = "[[snippet extraction timeout]]";
+            }
+            results.get(resultId).setSnippet(extractedSnippet != null ? extractedSnippet : "[[snippet extraction failed]]");
+        }
+        snippetsExtractionExecutor.shutdownNow(); // force all unfinished tasks to quit by interrupting
+
         return results;
     }
 
