@@ -31,6 +31,7 @@ import org.apache.lucene.search.spans.Spans;
  * @author Martin Liska
  */
 public class NiceSnippetExtractor implements SnippetExtractor {
+
     private static final Logger LOG = LogManager.getLogger(NiceSnippetExtractor.class);
     private Query query;
     private int docNumber;
@@ -45,7 +46,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
     }
 
     @Override
-    public String getSnippet() {
+    public String getSnippet() throws InterruptedException {
         try {
             List<Query> stqs = new ArrayList<>();
             List<Query> nstqs = new ArrayList<>();
@@ -53,6 +54,9 @@ public class NiceSnippetExtractor implements SnippetExtractor {
             List<Span> formSpans = new ArrayList<>();
             for (Query q : stqs) {
                 for (AtomicReaderContext context : indexReader.leaves()) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedException("Snippet extraction thread interrupted during processing");
+                    }
                     Spans spans = ((SpanTermQuery) q).getSpans(context, null, new HashMap());
                     spans.skipTo(docNumber - context.docBase - 1);
                     boolean cont = true;
@@ -75,7 +79,6 @@ public class NiceSnippetExtractor implements SnippetExtractor {
                     }
                 }
             }
-
             return getSnippet(formSpans, nstqs);
         } catch (IOException ex) {
             LOG.fatal(ex);
@@ -83,15 +86,20 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         return "";
     }
 
-    private void getSpanTermQueries(Query query, List<Query> spanTermQueries, List<Query> nonSpamTermQueries) throws IOException {
-        Query q = query.rewrite(indexReader);
+    private void getSpanTermQueries(Query query, List<Query> spanTermQueries, List<Query> nonSpamTermQueries) throws IOException, InterruptedException {
+        Query q;
+        synchronized (query) {
+            q = query.rewrite(indexReader);
+        }
         if (q instanceof SpanTermQuery) {
             spanTermQueries.add(q);
         } else {
             if (q instanceof BooleanQuery) {
                 BooleanClause[] bcs = ((BooleanQuery) q).getClauses();
-                for (BooleanClause bc : bcs)
-                {
+                for (BooleanClause bc : bcs) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedException("Snippet extraction thread interrupted during boolean clauses processing");
+                    }
                     getSpanTermQueries(bc.getQuery(), spanTermQueries, nonSpamTermQueries);
                 }
             } else {
@@ -100,7 +108,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         }
     }
 
-    private String getSnippet(List<Span> spans, List<Query> nstqs) throws FileNotFoundException, IOException {
+    private String getSnippet(List<Span> spans, List<Query> nstqs) throws FileNotFoundException, IOException, InterruptedException {
         String content = MIaSUtils.getContent(inputStream);
 
         List<Snippet> snippets = getDocSnippets(spans, nstqs, content);
@@ -109,6 +117,9 @@ public class NiceSnippetExtractor implements SnippetExtractor {
 
         Iterator<Snippet> it = snippets.iterator();
         while (it.hasNext()) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Snippet extraction thread interrupted during processing");
+            }
             String text = it.next().getText();
             if (isDots(result, false) && isDots(text, true)) {
                 result += " " + text.substring(3);
@@ -133,7 +144,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         return dots.equals("...");
     }
 
-    private List<Snippet> getDocSnippets(List<Span> spans, List<Query> nstqs, String content) {
+    private List<Snippet> getDocSnippets(List<Span> spans, List<Query> nstqs, String content) throws InterruptedException {
         List<Snippet> result = new ArrayList<>();
 
         if (spans != null && !spans.isEmpty()) {
@@ -142,6 +153,9 @@ public class NiceSnippetExtractor implements SnippetExtractor {
             Iterator<Span> itSpan = spans.iterator();
             int prevPosition = -1;
             while (itSpan.hasNext()) {
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("Snippet extraction thread interrupted during span processing");
+                }
                 Span span = itSpan.next();
                 int currentPosition = span.getPosition();
                 if (currentPosition == prevPosition) {
@@ -153,6 +167,9 @@ public class NiceSnippetExtractor implements SnippetExtractor {
             String mathStart = "<math";
             String mathEnd = "</math>";
             for (int j = 0; j <= 1 && j < spans.size(); j++) {
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("Snippet extraction thread interrupted during span processing");
+                }
                 int pos = spans.get(j).getPosition();
                 int start = 0;
                 int end = 0;
@@ -177,6 +194,9 @@ public class NiceSnippetExtractor implements SnippetExtractor {
 
         Set<Term> terms = new LinkedHashSet<>();
         for (Query q : nstqs) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Snippet extraction thread interrupted during nstqs processing");
+            }
             q.extractTerms(terms);
         }
         final String tagHighlightStart = "<span class=\"highlight\">";
@@ -189,6 +209,9 @@ public class NiceSnippetExtractor implements SnippetExtractor {
             for (Snippet snip : result) {
                 int start = -tagHighlightStart.length();// = highlightIn.indexOf(text);
                 while (start != -1) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedException("Snippet extraction thread interrupted during terms processing");
+                    }
                     highlightIn = snip.getText();
                     start = highlightIn.indexOf(text, start + tagHighlightStart.length() + 1);
                     if (start != -1) {
@@ -208,6 +231,9 @@ public class NiceSnippetExtractor implements SnippetExtractor {
                 int start = 0;
                 boolean added = false;
                 while (!added) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedException("Snippet extraction thread interrupted during terms processing");
+                    }
                     start = highlightIn.indexOf(text, start);
                     if (start != -1) {
                         if (!isInTag(content, start)) {
@@ -215,7 +241,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
                             String snipp = tagHighlightStart + content.substring(start, end) + tagHighlightEnd;
                             Snippet snippet = new Snippet(start, end, snipp);
                             addSurround(snippet, content);
-                            if (isUniqueShippet(snippet, result)) {
+                            if (isUniqueSnippet(snippet, result)) {
                                 result.add(snippet);
                                 added = true;
                             }
@@ -232,9 +258,12 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         return result;
     }
 
-    private boolean isUniqueShippet(Snippet snippet, List<Snippet> result) {
+    private boolean isUniqueSnippet(Snippet snippet, List<Snippet> result) throws InterruptedException {
         boolean unique = true;
         for (Snippet s : result) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Snippet extraction thread interrupted during uniqueness checking");
+            }
             if (s.getText().replaceAll("\\s", "").contains(snippet.getText().replaceAll("\\s", ""))) {
                 unique = false;
                 break;

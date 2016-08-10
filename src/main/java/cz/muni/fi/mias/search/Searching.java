@@ -20,7 +20,14 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.apache.logging.log4j.LogManager;
@@ -63,8 +70,10 @@ public class Searching {
     private PayloadSimilarity ps = new PayloadSimilarity();
 //    private TitlesSuggester sug;
     private int snippetsEnabledLimit = 100;
-    private static final int searchTimeLimiterTickLengthMilisec = 1000; // 1 second
+    private static final int searchTimeLimiterTickLengthMillisec = 1000; // 1 second
     private static final int searchTimeLimiterAllowedTicks = 30; // 30 seconds
+    private static final int snippetExtractionTimeoutMillisec = 3000; // 3 seconds
+    private static final int snippetExtractionFinishJobsTimeoutMillisec = 2000; // 2 seconds
 
     /**
      * Constructs new Searching on the index from the Settings file.
@@ -163,8 +172,8 @@ public class Searching {
                     while (clockTicking.get()) { // Ticking until told to stop
                         clock.addAndGet(1); // Count one more tick
                         try {
-                            LOG.debug("Search time limiter ticked to " + clock.get() + " (ticking every " + searchTimeLimiterTickLengthMilisec + " miliseconds)");
-                            Thread.sleep(searchTimeLimiterTickLengthMilisec); // Tick length
+                            LOG.debug("Search time limiter ticked to " + clock.get() + " (ticking every " + searchTimeLimiterTickLengthMillisec + " miliseconds)");
+                            Thread.sleep(searchTimeLimiterTickLengthMillisec); // Tick length
                         } catch (InterruptedException ex) {
                             LOG.error("Search time limiter ticking interrupted", ex);
                         }
@@ -182,7 +191,7 @@ public class Searching {
                 indexSearcher.search(bq, timeLimitingCollector);
             } catch (TimeExceededException ex) {
                 LOG.warn("Search time limiter interrupted search thread (search limit set to "
-                        + (searchTimeLimiterTickLengthMilisec * searchTimeLimiterAllowedTicks)
+                        + (searchTimeLimiterTickLengthMillisec * searchTimeLimiterAllowedTicks)
                         + " miliseconds)");
             } finally {
                 clockTicking.set(false); // Notify clock ticking thread we are finished
@@ -299,6 +308,8 @@ public class Searching {
         for (ScoreDoc sd : docs) {
             snippetCounter++;
 
+            LOG.debug("Getting result " + snippetCounter + ": doc id " + sd.doc);
+
             Document document = indexSearcher.doc(sd.doc);
             String fullLocalPath = document.get("path");
             String dataPath = storagePath + fullLocalPath;
@@ -316,22 +327,67 @@ public class Searching {
                 id = document.get("id");
             }
 
-            String snippet = "Snippets disabled";
+            AtomicReference<String> snippet = new AtomicReference<>("[[snippets disabled]]");
             if (snippetCounter <= snippetsEnabledLimit) {
-                InputStream snippetIs = getInputStreamFromDataPath(document);
-                if (snippetIs != null) {
-                    SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
-                    snippet = extractor.getSnippet();
-                } else {
-                    LOG.info("Stream is null for snippet extraction {}", dataPath);
+
+                // Extract snippets in separate thread with time limit on processing.
+                // See:
+                //   https://stackoverflow.com/questions/20500003/setting-a-maximum-execution-time-for-a-method-thread
+                //   https://stackoverflow.com/questions/10504172/how-to-shutdown-an-executorservice
+                //   https://stackoverflow.com/questions/2733356/killing-thread-after-some-specified-time-limit-in-java
+                //   https://stackoverflow.com/questions/3590000/what-does-java-lang-thread-interrupt-do
+                ExecutorService executor = Executors.newFixedThreadPool(1);
+                Future<?> snippetExtractionJob = executor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            InputStream snippetIs;
+                            synchronized (document) {
+                                snippetIs = getInputStreamFromDataPath(document);
+                            }
+                            if (snippetIs != null) {
+                                SnippetExtractor extractor = new NiceSnippetExtractor(snippetIs, query, sd.doc, indexSearcher.getIndexReader());
+                                snippet.set(extractor.getSnippet());
+                            } else {
+                                LOG.warn("Stream is null for snippet extraction {}", dataPath);
+                            }
+                            if (snippetIs != null) {
+                                try {
+                                    snippetIs.close();
+                                } catch (IOException ex) {
+                                    LOG.error("Snippet extraction for document id " + sd.doc + " failed to close input stream", ex);
+                                }
+                            }
+                        } catch (InterruptedException ex) {
+                            LOG.warn("Snippet extraction job for document id " + sd.doc + " was interrupted", ex);
+                        }
+                    }
+                });
+                executor.shutdown(); // reject all further submissions of new jobs to the executor
+                try {
+                    // wait given amount of time to finish the snippet extraction job
+                    snippetExtractionJob.get(snippetExtractionTimeoutMillisec, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException ex) {
+                    LOG.warn("Snippet extraction job for document id " + sd.doc + " was interrupted", ex);
+                } catch (ExecutionException ex) {
+                    LOG.error("Snippet extraction job for document id " + sd.doc + " failed", ex);
+                } catch (TimeoutException ex) {
+                    snippetExtractionJob.cancel(true); // interrupt the job
+                    LOG.warn("Snippet extraction job for document id " + sd.doc + " canceled due to timeout of " + snippetExtractionTimeoutMillisec + " ms");
+                    snippet.set("[[snippet extraction timeout]]");
                 }
-                if (snippetIs != null) {
-                    snippetIs.close();
+                try {
+                    // wait all unfinished tasks for given amount of time
+                    if (!executor.awaitTermination(snippetExtractionFinishJobsTimeoutMillisec, TimeUnit.MILLISECONDS)) {
+                        executor.shutdownNow(); // force them to quit by interrupting
+                    }
+                } catch (InterruptedException ex) {
+                    LOG.error("Snippet extraction jobs interruption failed", ex);
                 }
             } else {
-                snippet = "Snippets disabled for result positions above " + snippetsEnabledLimit;
+                snippet.set("[[snippets disabled for result positions above " + snippetsEnabledLimit + "]]");
             }
-            results.add(new Result(title, fullLocalPath, info, id, snippet));
+            results.add(new Result(title, fullLocalPath, info, id, snippet.get()));
         }
         return results;
     }
