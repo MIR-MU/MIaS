@@ -78,7 +78,7 @@ BibTeX
      author = "Petr Sojka and Martin L{\'\i}{\v s}ka",
       title = "{The Art of Mathematics Retrieval}",
   booktitle = "{Proceedings of the ACM Conference on Document Engineering,
-  		DocEng 2011}",
+                DocEng 2011}",
   publisher = "{Association of Computing Machinery}",
     address = "{Mountain View, CA}",
        year = 2011,
@@ -88,13 +88,13 @@ BibTeX
         url = {http://doi.acm.org/10.1145/2034691.2034703},
         doi = {10.1145/2034691.2034703},
    abstract = {The design and architecture of MIaS (Math Indexer and Searcher), 
-	       a system for mathematics retrieval is presented, and design 
-	       decisions are discussed. We argue for an approach based on 
-	       Presentation MathML using a similarity of math subformulae. The 
-	       system was implemented as a math-aware search engine based on the 
-	       state-of-the-art system Apache Lucene. Scalability issues were 
-	       checked against more than 400,000 arXiv documents with 158 
-	       million mathematical formulae. Almost three billion MathML 
-	       subformulae were indexed using a Solr-compatible Lucene.},
+               a system for mathematics retrieval is presented, and design
+               decisions are discussed. We argue for an approach based on
+               Presentation MathML using a similarity of math subformulae. The
+               system was implemented as a math-aware search engine based on
+               the state-of-the-art system Apache Lucene. Scalability issues
+               were checked against more than 400,000 arXiv documents with 158
+               million mathematical formulae. Almost three billion MathML
+               subformulae were indexed using a Solr-compatible Lucene.},
 }
 ```
