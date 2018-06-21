@@ -30,7 +30,24 @@ jobs:
           # fallback to using the latest cache if no exact match is found
           - v1-dependencies-
 
-      - run: mvn dependency:go-offline
+      - run: |
+          set -e
+          if [[ ! -e MathMLCan ]]; then
+            git clone https://github.com/MIR-MU/MathMLCan.git
+            cd MathMLCan
+            mvn clean install
+          fi
+          if [[ ! -e MathMLUnificator ]]; then
+            git clone https://github.com/MIR-MU/MathMLUnificator.git
+            cd MathMLUnificator
+            mvn clean install
+          fi
+          if [[ ! -e MIaSMath ]]; then
+            git clone https://github.com/MIR-MU/MIaSMath.git
+            cd MIaSMath
+            mvn clean install
+          fi
+          mvn dependency:go-offline
 
       - save_cache:
           paths:
