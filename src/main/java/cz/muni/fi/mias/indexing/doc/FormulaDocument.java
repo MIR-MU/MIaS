@@ -9,7 +9,6 @@ import cz.muni.fi.mias.math.MathTokenizer;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +20,7 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.document.Document;
@@ -69,13 +69,14 @@ public class FormulaDocument extends AbstractMIaSDocument {
                 Source xmlSource = new DOMSource(item);
                 Result outputTarget = new StreamResult(outputStream);
                 TransformerFactory.newInstance().newTransformer().transform(xmlSource, outputTarget);
-                InputStream is = new ByteArrayInputStream(outputStream.toByteArray());
-                InputStreamReader isr = new InputStreamReader(is, "UTF-8");
+
+                byte[] bytes = outputStream.toByteArray();
+                InputStreamReader isr = new InputStreamReader(new ByteArrayInputStream(bytes), "UTF-8");
                 MathTokenizer mathTokenizer = new MathTokenizer(isr, true, MathTokenizer.MathMLType.PRESENTATION);
                 mathTokenizer.setFormulaPosition(i+1);
                 doc.add(new TextField("pmath", mathTokenizer));
-                is.reset();
-                isr = new InputStreamReader(is, "UTF-8");
+
+                isr = new InputStreamReader(new ByteArrayInputStream(bytes), "UTF-8");
                 MathTokenizer mathTokenizer1 = new MathTokenizer(isr, true, MathTokenizer.MathMLType.CONTENT);
                 mathTokenizer1.setFormulaPosition(i+1);
                 doc.add(new TextField("cmath", mathTokenizer1));
