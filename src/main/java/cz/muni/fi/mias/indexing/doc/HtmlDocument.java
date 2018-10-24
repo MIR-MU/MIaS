@@ -5,10 +5,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
+
+import org.apache.lucene.document.*;
 
 /**
  *
@@ -39,15 +37,21 @@ public class HtmlDocument extends AbstractMIaSDocument {
         if (title != null) {
             document.removeField("title");
             Field titleField = new TextField("title", title, Field.Store.YES);
-            titleField.setBoost(Float.parseFloat("10.0"));
+            // Lucene API change: Index-time boosts are not supported anymore.
+            // https://lucene.apache.org/core/7_0_0/MIGRATE.html
+            // https://issues.apache.org/jira/browse/LUCENE-6819
+            FloatDocValuesField titleBoostField = new FloatDocValuesField("title", 10.0f);
             document.add(titleField);
+            document.add(titleBoostField);
         }
 
+        // TODO 'authors' field is not used anywhere??
         String authors = htmldoc.getAuthors();
         if (authors != null) {
             Field authorsField = new StringField("authors", authors, Field.Store.YES);
-            authorsField.setBoost(Float.parseFloat("10.0"));
+            FloatDocValuesField authorsBoostField = new FloatDocValuesField("authors", 10.0f);
             document.add(authorsField);
+            document.add(authorsBoostField);
         }
         
         String content = htmldoc.getBody();

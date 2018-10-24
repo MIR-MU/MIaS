@@ -36,23 +36,20 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.queries.function.FunctionScoreQuery;
+import org.apache.lucene.queries.payloads.AveragePayloadFunction;
+import org.apache.lucene.queries.payloads.PayloadDecoder;
+import org.apache.lucene.queries.payloads.PayloadScoreQuery;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.TimeLimitingCollector;
+import org.apache.lucene.search.*;
 import org.apache.lucene.search.TimeLimitingCollector.TimeExceededException;
-import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TopScoreDocCollector;
-import org.apache.lucene.search.Weight;
-import org.apache.lucene.search.payloads.AveragePayloadFunction;
-import org.apache.lucene.search.payloads.PayloadTermQuery;
+import org.apache.lucene.search.spans.SpanBoostQuery;
+import org.apache.lucene.search.spans.SpanTermQuery;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Counter;
 
@@ -66,6 +63,7 @@ import org.apache.lucene.util.Counter;
 public class Searching {
 
     private static final Logger LOG = LogManager.getLogger(Searching.class);
+    private IndexReader indexReader;
     private IndexSearcher indexSearcher;
     private String storagePath;
     private PayloadSimilarity ps = new PayloadSimilarity();
@@ -82,7 +80,9 @@ public class Searching {
      */
     public Searching() {
         try {
-            this.indexSearcher = new IndexSearcher(IndexReader.open(FSDirectory.open(new File(Settings.getIndexDir()))));
+            File indexDir = new File(Settings.getIndexDir());
+            indexReader = DirectoryReader.open(FSDirectory.open(indexDir.toPath()));
+            this.indexSearcher = new IndexSearcher(indexReader);
             this.indexSearcher.setSimilarity(ps);
             this.storagePath = "";
 //            sug = new TitlesSuggester(indexSearcher.getIndexReader());
@@ -182,8 +182,14 @@ public class Searching {
                     LOG.debug("Search time limiter ticking stopped at " + clock.get());
                 }
             }.start();
-            Weight weight = indexSearcher.createNormalizedWeight(bq);
-            TopScoreDocCollector collector = TopScoreDocCollector.create(Settings.getMaxResults(), !weight.scoresDocsOutOfOrder());
+
+            // Lucene API change: IndexSearcher#createNormalizedWeight() has been removed.
+            // Clients should rewrite the query and then call createWeight(Query, boolean, float)
+            // with a boost value of 1f
+            // https://issues.apache.org/jira/browse/LUCENE-8242
+            // Query rewrittenQuery = bq.rewrite(indexReader);
+            // Weight weight = indexSearcher.createWeight(rewrittenQuery, true, 1.0f);
+            TopScoreDocCollector collector = TopScoreDocCollector.create(Settings.getMaxResults());
             TimeLimitingCollector timeLimitingCollector = new TimeLimitingCollector(collector, clock, searchTimeLimiterAllowedTicks);
             long clockBaseline = clock.get();
             timeLimitingCollector.setBaseline(clockBaseline);
@@ -228,12 +234,12 @@ public class Searching {
      * (formula_1 or ... or formula_n) and (text queries)
      */
     private ImmutablePair<Query, String> parseInput(String queryString, MathTokenizer.MathMLType variant, boolean extractSubformulae, boolean reduceWeighting) {
-        BooleanQuery result = new BooleanQuery();
+        BooleanQuery.Builder result = new BooleanQuery.Builder();
         List<ImmutablePair<String, Float>> qxf = new ArrayList<>();
         StringBuilder queryXMLFormulae = new StringBuilder();
         String[] sep = MathSeparator.separate(queryString, "");
         if (sep[1].length() > 0) {
-            BooleanQuery bq = new BooleanQuery();
+            BooleanQuery.Builder bq = new BooleanQuery.Builder();
             String mathQuery = "<?xml version='1.0' encoding='UTF-8'?><!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN\" \"http://www.w3.org/TR/MathML2/dtd/xhtml-math11-f.dtd\"><html>" + sep[1] + "</html>";
             if (variant == MathTokenizer.MathMLType.PRESENTATION || variant == MathTokenizer.MathMLType.BOTH) {
                 Map<String, Float> qf = addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.PRESENTATION, extractSubformulae, reduceWeighting);
@@ -243,7 +249,7 @@ public class Searching {
                 Map<String, Float> qf = addMathQueries(mathQuery, bq, MathTokenizer.MathMLType.CONTENT, extractSubformulae, reduceWeighting);
                 qf.forEach((xml, weight) -> qxf.add(new ImmutablePair<>(xml, weight)));
             }
-            result.add(bq, BooleanClause.Occur.MUST);
+            result.add(bq.build(), BooleanClause.Occur.MUST);
             Collections.sort(qxf, (a, b) -> b.getRight().compareTo(a.getRight()));
             qxf.forEach((i) -> queryXMLFormulae
                     .append("formula with weight ").append(i.getRight())
@@ -255,15 +261,18 @@ public class Searching {
             try {
                 queryXMLFormulae.append("text: ").append(sep[0]).append("\n");
                 Query query = parser.parse(sep[0]);
-                result.add(query, BooleanClause.Occur.MUST);
+                // see cz/muni/fi/mias/indexing/doc/HtmlDocument.java
+                DoubleValuesSource boostByField = DoubleValuesSource.fromFloatField("title");
+                FunctionScoreQuery boostedQuery = new FunctionScoreQuery(query, boostByField);
+                result.add(boostedQuery, BooleanClause.Occur.MUST);
             } catch (ParseException pe) {
                 LOG.error(pe.getMessage());
             }
         }
-        return new ImmutablePair<>(result, queryXMLFormulae.toString());
+        return new ImmutablePair<>(result.build(), queryXMLFormulae.toString());
     }
 
-    private Map<String, Float> addMathQueries(String mathQuery, BooleanQuery bq, MathTokenizer.MathMLType variant, boolean extractSubformulae, boolean reduceWeighting) {
+    private Map<String, Float> addMathQueries(String mathQuery, BooleanQuery.Builder bq, MathTokenizer.MathMLType variant, boolean extractSubformulae, boolean reduceWeighting) {
         MathTokenizer mt = new MathTokenizer(new StringReader(mathQuery), extractSubformulae, variant, reduceWeighting);
         try {
             mt.reset();
@@ -285,10 +294,15 @@ public class Searching {
         while (it.hasNext()) {
             Map.Entry<String, Float> entry = it.next();
             Float boost = entry.getValue();
-            PayloadTermQuery ptq = new PayloadTermQuery(new Term(field, entry.getKey()), new AveragePayloadFunction());
 
-            ptq.setBoost(boost);
-            result.add(ptq);
+            // PayloadTermQuery has been removed at the expense of PayloadScoreQuery
+            // https://issues.apache.org/jira/browse/LUCENE-6706
+            PayloadScoreQuery payloadScoreQuery = new PayloadScoreQuery(
+                    new SpanBoostQuery(new SpanTermQuery(new Term(field,entry.getKey())), boost),
+                    new AveragePayloadFunction(),
+                    PayloadDecoder.FLOAT_DECODER);
+
+            result.add(payloadScoreQuery);
         }
         return result;
     }
@@ -404,7 +418,7 @@ public class Searching {
     /**
      * Prints results to standard output.
      *
-     * @param docs TopDocs with top hits for query.
+     * @param searchResult TopDocs with top hits for query.
      * @param query Query that was searched for.
      * @param searcher Searcher that performed the search.
      * @throws IOException
@@ -414,7 +428,7 @@ public class Searching {
             throws IOException, CorruptIndexException {
         LOG.info("Searching for: {}", query);
         LOG.info("Time: {} ms", searchResult.getCoreSearchTime());
-        int totalResults = searchResult.getTotalResults();
+        long totalResults = searchResult.getTotalResults();
         LOG.info("Total hits: {}", totalResults);
         if (totalResults == 0) {
             LOG.warn("-------------");

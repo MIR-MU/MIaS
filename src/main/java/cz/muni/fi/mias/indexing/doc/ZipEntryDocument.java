@@ -9,12 +9,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import org.apache.lucene.document.DateTools;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.LongField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
+
+import org.apache.lucene.document.*;
 
 /**
  * Zip file implementation of the DocumentSource.
@@ -64,7 +60,16 @@ public class ZipEntryDocument implements DocumentSource {
         doc.add(new StringField("modified",
                 DateTools.timeToString(zipEntry.getTime(), DateTools.Resolution.MINUTE),
                 Field.Store.YES));
-        doc.add(new LongField("filesize", zipEntry.getSize(), Field.Store.YES));     
+
+        // Multiple values for the same field in one document is allowed.
+        String filesize = "filesize";
+        // for exact / range queries
+        doc.add(new LongPoint(filesize, zipEntry.getSize()));
+        // for storing the value
+        doc.add(new StoredField(filesize, zipEntry.getSize()));
+        // for sorting / scoring / faceting
+        doc.add(new NumericDocValuesField(filesize, zipEntry.getSize()));
+
         doc.add(new TextField("title", zipEntry.getName(), Field.Store.YES));   
         doc.add(new StringField("archivepath", zipEntry.getName(), Field.Store.YES));
         return doc;

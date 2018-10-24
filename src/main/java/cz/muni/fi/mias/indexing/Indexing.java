@@ -27,7 +27,6 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.Version;
 
 /**
  * Indexing class responsible for adding, updating and deleting files from index,
@@ -75,12 +74,12 @@ public class Indexing {
         }
         try {
             startTime = System.currentTimeMillis();
-            IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_45, analyzer);
+            IndexWriterConfig config = new IndexWriterConfig(analyzer);
             PayloadSimilarity ps = new PayloadSimilarity();
             ps.setDiscountOverlaps(false);
             config.setSimilarity(ps);
             config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
-            try (IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config))
+            try (IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir.toPath()), config))
             {
                 LOG.info("Getting list of documents to index.");
                 List<File> files = getDocs(docDir);
@@ -165,12 +164,12 @@ public class Indexing {
      * Optimizes the index.
      */
     public void optimize() {        
-        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_31, analyzer);
+        IndexWriterConfig config = new IndexWriterConfig(analyzer);
         config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());  
         // TODO what do we measure here ? time of optimization or optimiziation
         // and index opening aswell
         startTime = System.currentTimeMillis();
-        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config)){
+        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir.toPath()), config)){
 //            writer.optimize();    
             LOG.info("Optimizing time: {} ms",System.currentTimeMillis()-startTime);
         } catch (IOException e) {
@@ -214,9 +213,9 @@ public class Indexing {
             LOG.error("Document directory '{}' does not exist or is not readable, please check the path.", docDir.getAbsolutePath());
             System.exit(1);
         }
-        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_31, analyzer);
+        IndexWriterConfig config = new IndexWriterConfig(analyzer);
         config.setIndexDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
-        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir), config)) { 
+        try(IndexWriter writer = new IndexWriter(FSDirectory.open(indexDir.toPath()), config)) {
             deleteDocs(writer, docDir);
         } catch (IOException ex) {
             System.out.println(ex.getMessage());
@@ -245,7 +244,7 @@ public class Indexing {
      */
     public void getStats() {
         String stats = "\nIndex statistics: \n\n";
-        try(DirectoryReader dr = DirectoryReader.open(FSDirectory.open(indexDir))) {
+        try(DirectoryReader dr = DirectoryReader.open(FSDirectory.open(indexDir.toPath()))) {
             stats += "Index directory: "+indexDir.getAbsolutePath() + "\n";
             stats += "Number of indexed documents: " + dr.numDocs() + "\n";
             

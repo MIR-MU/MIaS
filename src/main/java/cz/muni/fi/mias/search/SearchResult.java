@@ -14,7 +14,9 @@ import java.util.List;
 public class SearchResult {
 
     private List<Result> results;
-    private int totalResults;
+    // Lucene API change: TopDocs.totalHits is now a long
+    // https://lucene.apache.org/core/7_0_0/MIGRATE.html
+    private long totalResults;
     private long coreSearchTime;
     private long totalSearchTime;
     private String query;
@@ -52,11 +54,11 @@ public class SearchResult {
      *
      * @return Total number of matched documents
      */
-    public int getTotalResults() {
+    public long getTotalResults() {
         return totalResults;
     }
 
-    public void setTotalResults(int totalResults) {
+    public void setTotalResults(long totalResults) {
         this.totalResults = totalResults;
     }
 

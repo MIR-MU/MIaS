@@ -8,20 +8,19 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.lucene.index.AtomicReaderContext;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.Query;
+import org.apache.lucene.payloads.PayloadSpanCollector;
+import org.apache.lucene.search.*;
 import org.apache.lucene.search.spans.SpanTermQuery;
+import org.apache.lucene.search.spans.SpanWeight;
 import org.apache.lucene.search.spans.Spans;
 
 /**
@@ -53,24 +52,36 @@ public class NiceSnippetExtractor implements SnippetExtractor {
             getSpanTermQueries(query, stqs, nstqs);
             List<Span> formSpans = new ArrayList<>();
             for (Query q : stqs) {
-                for (AtomicReaderContext context : indexReader.leaves()) {
+                // iterate over index segments (leaf contexts)
+                for (LeafReaderContext context : indexReader.leaves()) {
                     if (Thread.currentThread().isInterrupted()) {
                         throw new InterruptedException("Snippet extraction thread interrupted during processing");
                     }
-                    Spans spans = ((SpanTermQuery) q).getSpans(context, null, new HashMap());
-                    spans.skipTo(docNumber - context.docBase - 1);
+
+                    // "I want to use it (getSpans() method) to retrieve payloads of matched spans."
+                    SpanWeight weight = ((SpanTermQuery) q).createWeight(new IndexSearcher(indexReader), false, 1.0f);
+                    Spans spans = weight.getSpans(context, null);
+
+                    // Lucene API changed since Spans extends DocIdSetIterator
+                    // docNumber is absolute, Spans' docIds are relative (spans are inside leaf context / index segment)
+                    // skip to the beginning
+                    int beginning = spans.advance(docNumber - context.docBase - 1);
                     boolean cont = true;
                     boolean contextFound = false;
                     while (cont) {
-                        int contextSpanDocNumber = context.docBase + spans.doc();
+                        // get absolute docId in the current context
+                        int contextSpanDocNumber = context.docBase + spans.docID();
 //                        System.out.println(contextSpanDocNumber);
                         if (docNumber == contextSpanDocNumber) {
                             contextFound = true;
                             cont = docNumber - contextSpanDocNumber >= 0;
-                            Collection<byte[]> payloads = spans.getPayload();
-                            formSpans.add(new Span(spans.doc(), q.toString(), spans.start(), cz.muni.fi.mias.math.PayloadHelper.decodeFloatFromShortBytes(payloads.iterator().next())));
+                            // SpanCollector Lucene WARNING: This API is experimental..
+                            PayloadSpanCollector spanCollector = new PayloadSpanCollector();
+                            spans.collect(spanCollector);
+                            Collection<byte[]> payloads = spanCollector.getPayloads();
+                            formSpans.add(new Span(spans.docID(), q.toString(), spans.startPosition(), cz.muni.fi.mias.math.PayloadHelper.decodeFloatFromShortBytes(payloads.iterator().next())));
                         }
-                        if (!spans.next()) {
+                        if (spans.nextDoc() == DocIdSetIterator.NO_MORE_DOCS) {
                             cont = false;
                         }
                     }
@@ -95,7 +106,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
             spanTermQueries.add(q);
         } else {
             if (q instanceof BooleanQuery) {
-                BooleanClause[] bcs = ((BooleanQuery) q).getClauses();
+                List<BooleanClause> bcs = ((BooleanQuery) q).clauses();
                 for (BooleanClause bc : bcs) {
                     if (Thread.currentThread().isInterrupted()) {
                         throw new InterruptedException("Snippet extraction thread interrupted during boolean clauses processing");
@@ -144,7 +155,7 @@ public class NiceSnippetExtractor implements SnippetExtractor {
         return dots.equals("...");
     }
 
-    private List<Snippet> getDocSnippets(List<Span> spans, List<Query> nstqs, String content) throws InterruptedException {
+    private List<Snippet> getDocSnippets(List<Span> spans, List<Query> nstqs, String content) throws InterruptedException, IOException {
         List<Snippet> result = new ArrayList<>();
 
         if (spans != null && !spans.isEmpty()) {
@@ -197,7 +208,10 @@ public class NiceSnippetExtractor implements SnippetExtractor {
             if (Thread.currentThread().isInterrupted()) {
                 throw new InterruptedException("Snippet extraction thread interrupted during nstqs processing");
             }
-            q.extractTerms(terms);
+            // Lucene API change: Replaced Query.extractTerms with Weight.extractTerms.
+            // https://issues.apache.org/jira/browse/LUCENE-6425
+            Weight weight = q.createWeight(new IndexSearcher(indexReader), false, 1.0f);
+            weight.extractTerms(terms);
         }
         final String tagHighlightStart = "<span class=\"highlight\">";
         final String tagHighlightEnd = "</span>";

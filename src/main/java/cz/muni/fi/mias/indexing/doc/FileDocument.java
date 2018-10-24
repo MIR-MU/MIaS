@@ -8,12 +8,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import org.apache.lucene.document.DateTools;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.LongField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
+
+import org.apache.lucene.document.*;
 
 /**
  * File implementation of the DocumentSource.
@@ -62,8 +58,15 @@ public class FileDocument implements DocumentSource {
                 DateTools.timeToString(file.lastModified(), DateTools.Resolution.MINUTE),
                 Field.Store.YES));
 
-        doc.add(new LongField("filesize", file.length(), Field.Store.YES));
-        
+        // Multiple values for the same field in one document is allowed.
+        String filesize = "filesize";
+        // for exact / range queries
+        doc.add(new LongPoint(filesize, file.length()));
+        // for storing the value
+        doc.add(new StoredField(filesize, file.length()));
+        // for sorting / scoring / faceting
+        doc.add(new NumericDocValuesField(filesize, file.length()));
+
         doc.add(new TextField("title", file.getName(), Field.Store.YES));
         return doc;
     }
