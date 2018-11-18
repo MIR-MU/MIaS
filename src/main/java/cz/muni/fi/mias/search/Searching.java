@@ -13,14 +13,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
+import java.util.*;
+
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -257,14 +253,24 @@ public class Searching {
                     .append("\n"));
         }
         if (sep[0].length() > 0) {
-            QueryParser parser = new MultiFieldQueryParser(new String[]{"content", "title"}, new StandardAnalyzer());
+            String[] fields = {"content", "title"};
+            QueryParser parser = new MultiFieldQueryParser(fields, new StandardAnalyzer());
             try {
                 queryXMLFormulae.append("text: ").append(sep[0]).append("\n");
                 Query query = parser.parse(sep[0]);
-                // see cz/muni/fi/mias/indexing/doc/HtmlDocument.java
-                DoubleValuesSource boostByField = DoubleValuesSource.fromFloatField("title");
-                FunctionScoreQuery boostedQuery = new FunctionScoreQuery(query, boostByField);
-                result.add(boostedQuery, BooleanClause.Occur.MUST);
+                // see cz/muni/fi/mias/indexing/doc/HtmlDocument.java for boosting API changes
+                boolean anyField = Arrays.stream(fields).noneMatch(f -> sep[0].contains(f));
+
+                Arrays.stream(fields).forEach(f -> {
+                    if (sep[0].contains(f) || anyField) {
+                        DoubleValuesSource boostByField = DoubleValuesSource.fromFloatField(f);
+                        FunctionScoreQuery boostedQuery = new FunctionScoreQuery(query, boostByField);
+                        result.add(boostedQuery, BooleanClause.Occur.MUST);
+                    }
+                });
+
+                // always include an original query
+                result.add(query, BooleanClause.Occur.MUST);
             } catch (ParseException pe) {
                 LOG.error(pe.getMessage());
             }

@@ -43,6 +43,10 @@ public class HtmlDocument extends AbstractMIaSDocument {
             FloatDocValuesField titleBoostField = new FloatDocValuesField("title", 10.0f);
             document.add(titleField);
             document.add(titleBoostField);
+        } else {
+            // assign default boost value
+            FloatDocValuesField titleBoostField = new FloatDocValuesField("title", 1.0f);
+            document.add(titleBoostField);
         }
 
         // TODO 'authors' field is not used anywhere??
@@ -52,12 +56,20 @@ public class HtmlDocument extends AbstractMIaSDocument {
             FloatDocValuesField authorsBoostField = new FloatDocValuesField("authors", 10.0f);
             document.add(authorsField);
             document.add(authorsBoostField);
+        } else {
+            // assign default boost value
+            FloatDocValuesField authorsBoostField = new FloatDocValuesField("authors", 1.0f);
+            document.add(authorsBoostField);
         }
         
         String content = htmldoc.getBody();
         if (content != null) {
             document.add(new TextField("content", content, Field.Store.NO));
         }
+
+        // assign default boost value (in any case)
+        FloatDocValuesField contentBoostField = new FloatDocValuesField("content", 1.0f);
+        document.add(contentBoostField);
 
         InputStreamReader isr = new InputStreamReader(source.resetStream(), "UTF-8");
         document.add(new TextField("pmath", new MathTokenizer(isr, true, MathTokenizer.MathMLType.PRESENTATION)));
