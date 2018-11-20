@@ -37,7 +37,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queries.function.FunctionScoreQuery;
 import org.apache.lucene.queries.payloads.AveragePayloadFunction;
-import org.apache.lucene.queries.payloads.PayloadDecoder;
 import org.apache.lucene.queries.payloads.PayloadScoreQuery;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -303,10 +302,11 @@ public class Searching {
 
             // PayloadTermQuery has been removed at the expense of PayloadScoreQuery
             // https://issues.apache.org/jira/browse/LUCENE-6706
+
             PayloadScoreQuery payloadScoreQuery = new PayloadScoreQuery(
                     new SpanBoostQuery(new SpanTermQuery(new Term(field,entry.getKey())), boost),
                     new AveragePayloadFunction(),
-                    PayloadDecoder.FLOAT_DECODER);
+                    new PayloadDecoder());
 
             result.add(payloadScoreQuery);
         }
