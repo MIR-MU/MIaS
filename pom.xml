@@ -24,6 +24,7 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>miasmath</artifactId>
             <version>${project.version}</version>
+            <type>jar</type>
         </dependency>
         <dependency>
             <groupId>commons-cli</groupId>
