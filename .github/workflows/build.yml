@@ -1,0 +1,86 @@
+name: Build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  MathMLCan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-java@v1
+      with:
+        java-version: '8'
+    - uses: actions/checkout@v2
+      with:
+        repository: MIR-MU/MathMLCan
+    - run: mvn clean install
+    - run: mvn integration-test
+    - uses: actions/upload-artifact@v2
+      with:
+        name: MathMLCan
+        path: .
+  MathMLUnificator:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-java@v1
+      with:
+        java-version: '8'
+    - uses: actions/checkout@v2
+      with:
+        repository: MIR-MU/MathMLUnificator
+    - run: mvn clean install
+    - run: mvn integration-test
+    - uses: actions/upload-artifact@v2
+      with:
+        name: MathMLUnificator
+        path: .
+  MIaSMath:
+    needs: [MathMLCan, MathMLUnificator]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-java@v1
+      with:
+        java-version: '8'
+    - uses: actions/download-artifact@v2
+      with:
+        name: MathMLCan
+        path: MathMLCan
+    - run: mvn install -f MathMLCan/pom.xml
+    - uses: actions/download-artifact@v2
+      with:
+        name: MathMLUnificator
+        path: MathMLUnificator
+    - run: mvn install -f MathMLUnificator/pom.xml
+    - uses: actions/checkout@v2
+      with:
+        repository: MIR-MU/MIaSMath
+    - run: mvn clean install
+    - run: mvn integration-test
+    - uses: actions/upload-artifact@v2
+      with:
+        name: MIaSMath
+        path: .
+  MIaS:
+    needs: [MathMLCan, MIaSMath]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-java@v1
+      with:
+        java-version: '8'
+    - uses: actions/download-artifact@v2
+      with:
+        name: MathMLCan
+        path: MathMLCan
+    - run: mvn install -f MathMLCan/pom.xml
+    - uses: actions/download-artifact@v2
+      with:
+        name: MIaSMath
+        path: MIaSMath
+    - run: mvn install -f MIaSMath/pom.xml
+    - uses: actions/checkout@v2
+    - run: mvn clean install
+    - run: mvn integration-test
+    - uses: actions/upload-artifact@v2
+      with:
+        name: MIaS
+        path: .
