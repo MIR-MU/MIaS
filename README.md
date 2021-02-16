@@ -1,8 +1,8 @@
 MIaS – Math-aware full-text search engine
 =========================================
-[![CircleCI](https://circleci.com/gh/MIR-MU/MIaS/tree/master.svg?style=shield)][ci]
+[![ci](https://github.com/MIR-MU/MIaS/workflows/Build/badge.svg)][ci]
 
- [ci]: https://circleci.com/gh/MIR-MU/MIaS/tree/master (CircleCI)
+ [ci]: https://github.com/MIR-MU/MIaS/actions (GitHub Actions)
 
 [MIaS][] (Math Indexer and Searcher) is a math-aware full-text search engine.
 It is based on [Apache Lucene][lucene]; however, its maths processing
