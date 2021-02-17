@@ -93,10 +93,10 @@ public class Settings {
      * @return Direcotry where the index is located or will be stored.
      */
     public static String getIndexDir() {
-        String result = config.getProperty("INDEXDIR");
-        if (result == null || result.equals("")) {
-            LOG.error("Broken properties file mias.properties. Please check INDEXDIR entry.");
-            System.exit(2);
+        String indexDir = config.getProperty("INDEXDIR");
+        String result = "/index";
+        if (result != null) {
+            result = indexDir;
         }
         return result;
     }
@@ -121,9 +121,13 @@ public class Settings {
      */
     public static int getNumThreads() {
         String threads = config.getProperty("THREADS");
-        int result = Integer.parseInt(threads);
-        if (result<0) {
-            result = 1;
+        int result = -1;
+        try {
+            result = Integer.parseInt(threads);
+        } catch (Exception e) {
+        }
+        if (result < 1) {
+            result = Runtime.getRuntime().availableProcessors();
         }
         return result;
     }
@@ -134,7 +138,7 @@ public class Settings {
      */
     public static int getMaxResults() {
         String n = config.getProperty("MAXRESULTS");
-        int result = 10000;
+        int result = 1000;
         try {
             result = Integer.parseInt(n);
         } catch (Exception e) {
@@ -162,10 +166,10 @@ public class Settings {
 
     public static boolean getIndexFormulaeDocuments() {
         String prop = config.getProperty("FORMULA_DOCUMENTS");
-        if (prop == null || prop.isEmpty()) {
-            return true;
+        boolean result = false;
+        if (prop != null) {
+            result = Boolean.parseBoolean(prop);
         }
-        boolean result = Boolean.parseBoolean(prop);
         return result;
     }
 }
