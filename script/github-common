@@ -6,14 +6,15 @@ set -o pipefail
 set -o xtrace
 
 # Define useful variables
-JAR_FILENAME=MIaS/target/MIaS-"$IMAGE_TAG"-SNAPSHOT-jar-with-dependencies.jar
+LIB_DIRNAME=MIaS/target/lib
+JAR_FILENAME=MIaS/target/MIaS-"$IMAGE_TAG"-SNAPSHOT.jar
 IMAGE_TAG=miratmu/mias:"$IMAGE_TAG"
 
 set -o nounset
 
 # Define command aliases
 docker_build() {
-  docker build --build-arg JAR_FILENAME="$JAR_FILENAME" --compress --no-cache --force-rm --squash -t "$IMAGE_TAG" "$@"
+  docker build --build-arg LIB_DIRNAME="$LIB_DIRNAME" --build-arg JAR_FILENAME="$JAR_FILENAME" --compress --no-cache --force-rm --squash -t "$IMAGE_TAG" "$@"
   docker tag "$IMAGE_TAG" miratmu/mias:latest
 }
 
