@@ -14,10 +14,12 @@ set -o nounset
 # Define command aliases
 docker_build() {
   docker build --build-arg JAR_FILENAME="$JAR_FILENAME" --compress --no-cache --force-rm --squash -t "$IMAGE_TAG" "$@"
+  docker tag "$IMAGE_TAG" miratmu/mias:latest
 }
 
 docker_push() {
   docker push "$IMAGE_TAG"
+  docker push miratmu/mias:latest
 }
 
 docker_run() {
