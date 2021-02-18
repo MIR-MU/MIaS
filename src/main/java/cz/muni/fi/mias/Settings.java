@@ -76,11 +76,13 @@ public class Settings {
     
     public static void init(String propertiesFilePath) {
         config = new Properties();
-        try {
-            config.load(new FileInputStream(propertiesFilePath));
-        } catch (Exception e) {
-           LOG.fatal(e);
-            System.exit(2);            
+        if (propertiesFilePath != null) {
+            try {
+                config.load(new FileInputStream(propertiesFilePath));
+            } catch (Exception e) {
+               LOG.fatal(e);
+                System.exit(2);
+            }
         }
     }
     
