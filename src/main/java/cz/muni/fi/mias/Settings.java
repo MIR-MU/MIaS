@@ -36,7 +36,6 @@ public class Settings {
         Options options = new Options();
         options.addOption(Option.builder(OPTION_CONF)
             .hasArg()
-            .required()
             .desc("Path to indexing configuration file.")
             .build());
         options.addOption(Option.builder(OPTION_ADD)
