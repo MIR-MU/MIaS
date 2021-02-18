@@ -6,7 +6,7 @@ set -o pipefail
 set -o xtrace
 
 # Define useful variables
-JAR_FILENAME=MIaS/target/MIaS-"$IMAGE_TAG"-SNAPSHOT.jar
+JAR_FILENAME=MIaS/target/MIaS-"$IMAGE_TAG"-SNAPSHOT-jar-with-dependencies.jar
 IMAGE_TAG=miratmu/mias:"$IMAGE_TAG"
 
 set -o nounset
