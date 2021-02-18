@@ -96,7 +96,7 @@ public class Settings {
     public static String getIndexDir() {
         String indexDir = config.getProperty("INDEXDIR");
         String result = "/index";
-        if (result != null) {
+        if (indexDir != null) {
             result = indexDir;
         }
         return result;
