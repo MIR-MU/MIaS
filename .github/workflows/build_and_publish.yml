@@ -1,6 +1,7 @@
 name: Build
 on:
-  pull_request:
+  push:
+    branches: [ master ]
   workflow_dispatch:
 jobs:
   Shellcheck:
@@ -90,8 +91,8 @@ jobs:
       with:
         name: MIaS
         path: .
-  docker-build:
-    name: Build Docker image
+  docker-build-and-publish:
+    name: Build and publish Docker image
     needs: MIaS
     runs-on: ubuntu-latest
     env:
@@ -104,3 +105,8 @@ jobs:
         name: MIaS
         path: MIaS
     - run: script/github-build
+    - uses: azure/docker-login@v1
+      with:
+        username: ${{ secrets.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+    - run: script/github-publish
