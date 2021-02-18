@@ -1,0 +1,6 @@
+#!/bin/bash
+
+. script/github-common
+
+# Build image
+docker_build .

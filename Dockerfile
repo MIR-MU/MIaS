@@ -1,0 +1,6 @@
+ARG VERSION_OPENJDK=8
+
+FROM openjdk:${VERSION_OPENJDK}
+ARG JAR_FILENAME
+COPY ${JAR_FILENAME} /MIaS.jar
+CMD ["java", "-jar", "/MIaS.jar"]

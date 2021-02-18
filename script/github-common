@@ -1,0 +1,29 @@
+#!/bin/bash
+#shellcheck disable=SC2034
+
+set -o errexit
+set -o pipefail
+set -o xtrace
+
+# Define useful variables
+JAR_FILENAME=MIaS/target/MIaS-"$IMAGE_TAG"-SNAPSHOT.jar
+IMAGE_TAG=miratmu/mias:"$IMAGE_TAG"
+
+set -o nounset
+
+# Define command aliases
+docker_build() {
+  docker build --build-arg JAR_FILENAME="$JAR_FILENAME" --compress --no-cache --force-rm --squash -t "$IMAGE_TAG" "$@"
+}
+
+docker_push() {
+  docker push "$IMAGE_TAG"
+}
+
+docker_run() {
+  docker run --rm -u "$(id -u)":"$(id -g)" -v "$PWD":/data -w /data "$1" "${@:2}"
+}
+
+mias() {
+  docker_run "$IMAGE_TAG" "$@"
+}
