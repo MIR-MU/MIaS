@@ -91,7 +91,7 @@ jobs:
         name: MIaS
         path: .
   docker-build:
-    name: Build Docker image
+    name: Build and test Docker image
     needs: MIaS
     runs-on: ubuntu-latest
     env:
@@ -104,3 +104,4 @@ jobs:
         name: MIaS
         path: MIaS
     - run: script/github-build
+    - run: script/github-test

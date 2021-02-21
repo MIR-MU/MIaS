@@ -92,7 +92,7 @@ jobs:
         name: MIaS
         path: .
   docker-build-and-publish:
-    name: Build and publish Docker image
+    name: Build, test, and publish Docker image
     needs: MIaS
     runs-on: ubuntu-latest
     env:
@@ -105,6 +105,7 @@ jobs:
         name: MIaS
         path: MIaS
     - run: script/github-build
+    - run: script/github-test
     - uses: azure/docker-login@v1
       with:
         username: ${{ secrets.DOCKER_HUB_USER }}

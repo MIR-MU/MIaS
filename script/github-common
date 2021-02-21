@@ -23,10 +23,7 @@ docker_push() {
   docker push miratmu/mias:latest
 }
 
-docker_run() {
-  docker run --rm -u "$(id -u)":"$(id -g)" -v "$PWD":/data -w /data "$1" "${@:2}"
-}
-
 mias() {
-  docker_run "$IMAGE_TAG" "$@"
+  docker run -v "$(readlink -f "$1")":/dataset:ro -v "$(readlink -f "$2")":/index:rw \
+    --rm "$IMAGE_TAG"
 }
