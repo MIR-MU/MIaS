@@ -16,6 +16,23 @@ capabilities are standalone and can be easily integrated into any
 
 Usage
 =====
+[Install Docker][], place your dataset to a directory named `dataset/`, and
+index your dataset using the [miratmu/mias][] Docker image:
+
+```sh
+docker run -v "$PWD"/dataset:/dataset:ro -v "$PWD"/index:/index:rw \
+    --rm miratmu/mias
+```
+
+When running MIaS, you may control the configuration of the Java Virtual
+Machine by changing the `JAVA_OPTS` environmental veriable:
+`-e JAVA_OPTS='-Xms128g -Xmx192g'`.
+
+ [install docker]: https://docs.docker.com/get-docker/
+ [miratmu/mias]: https://hub.docker.com/r/miratmu/mias/tags
+
+Usage without Docker
+====================
 Setting up `mias.properties`
 ----------------------------
 Create a file named `mias.properties` in some location, e.g.
