@@ -92,7 +92,7 @@ BibTeX
 ------
 ``` bib
 @inproceedings{doi:10.1145:2034691.2034703,
-     author = "Petr Sojka and Martin L{\'\i}{\v s}ka",
+     author = "Petr Sojka and Martin L\'{i}\v{s}ka",
       title = "{The Art of Mathematics Retrieval}",
   booktitle = "{Proceedings of the ACM Conference on Document Engineering,
                 DocEng 2011}",
